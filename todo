@@ -1,0 +1,12 @@
+todo
+
+[ ] loaders when we move from one page to another / api is triggered
+[ ] auth using google oauth as well
+[ ] enable realtime updates on /projects to load projects automatically on adding them to DB
+[ ] session management, sometimes needs reload, some issue here
+[ ] /builder/[project_id] this page has many UI bugs, things overflow, needs to be fixed
+[ ] during redemption, go to the actual reward_ledgar to calc the entire balance, if any parity, show error and update pineapples
+
+[ ] upgrade the UI of the website and keep it in line with Vamo's design system
+[ ] website is not optimal, takes time to load, and no loaders added for user experience
+

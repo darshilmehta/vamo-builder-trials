@@ -224,8 +224,8 @@ export function ChatPanel({ projectId, onMessageSent }: ChatPanelProps) {
                             >
                                 <div
                                     className={`rounded-lg px-3 py-2 text-sm ${msg.role === "user"
-                                            ? "bg-primary text-primary-foreground"
-                                            : "bg-muted"
+                                        ? "bg-primary text-primary-foreground"
+                                        : "bg-muted"
                                         }`}
                                 >
                                     {msg.content}
@@ -270,16 +270,16 @@ export function ChatPanel({ projectId, onMessageSent }: ChatPanelProps) {
             </ScrollArea>
 
             {/* Tag selector */}
-            <div className="flex gap-1 px-4 pb-2">
+            <div className="flex flex-wrap gap-1 px-4 pb-2 overflow-x-auto">
                 {TAG_OPTIONS.map((t) => (
                     <button
                         key={t.value}
                         onClick={() =>
                             setSelectedTag(selectedTag === t.value ? null : t.value)
                         }
-                        className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${selectedTag === t.value
-                                ? t.color + " ring-2 ring-offset-1 ring-primary"
-                                : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                        className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium whitespace-nowrap transition-colors ${selectedTag === t.value
+                            ? t.color + " ring-2 ring-offset-1 ring-primary"
+                            : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
                             }`}
                     >
                         <Tag className="h-3 w-3" />

@@ -14,6 +14,12 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
+    ResizableHandle,
+    ResizablePanel,
+    ResizablePanelGroup,
+    usePanelRef,
+} from "@/components/ui/resizable";
+import {
     Dialog,
     DialogContent,
     DialogHeader,
@@ -32,6 +38,10 @@ import {
     MessageSquare,
     Monitor,
     BarChart3,
+    PanelLeftClose,
+    PanelLeftOpen,
+    PanelRightClose,
+    PanelRightOpen,
 } from "lucide-react";
 import type { Project, Profile } from "@/lib/types";
 
@@ -63,6 +73,11 @@ export default function BuilderPage({
     const [listingPriceHigh, setListingPriceHigh] = useState("");
     const [urlDialog, setUrlDialog] = useState(false);
     const [projectUrl, setProjectUrl] = useState("");
+    const chatPanelRef = usePanelRef();
+    const businessPanelRef = usePanelRef();
+    const [chatCollapsed, setChatCollapsed] = useState(false);
+    const [previewVisible, setPreviewVisible] = useState(true);
+    const [businessCollapsed, setBusinessCollapsed] = useState(false);
 
     useEffect(() => {
         async function load() {
@@ -323,27 +338,166 @@ export default function BuilderPage({
                 </div>
             </header>
 
-            {/* Desktop Layout: 3 panels */}
+            {/* Desktop Layout: resizable panels */}
             <div className="hidden flex-1 overflow-hidden xl:flex">
-                <div className="w-[320px] border-r flex flex-col">
-                    <ChatPanel
-                        projectId={params.projectId}
-                        onMessageSent={handleMessageSent}
-                    />
-                </div>
-                <div className="flex-1 flex flex-col">
-                    <UIPreview
-                        url={project?.url || null}
-                        screenshotUrl={project?.screenshot_url || null}
-                        onOpenSettings={() => setUrlDialog(true)}
-                    />
-                </div>
-                <div className="w-[360px] border-l flex flex-col">
-                    <BusinessPanel
-                        projectId={params.projectId}
-                        refreshKey={refreshKey}
-                    />
-                </div>
+                <ResizablePanelGroup direction="horizontal" className="h-full" key={previewVisible ? "with-preview" : "without-preview"}>
+                    {/* Chat Panel */}
+                    <ResizablePanel
+                        panelRef={chatPanelRef}
+                        defaultSize={previewVisible ? "22%" : "40%"}
+                        minSize="15%"
+                        maxSize={previewVisible ? "40%" : "60%"}
+                        collapsible
+                        collapsedSize="0%"
+                        onResize={(size: any) => setChatCollapsed(String(size) === "0%")}
+                        className="flex flex-col"
+                    >
+                        <div className="flex h-full flex-col">
+                            <div className="flex items-center justify-between border-b px-3 py-1.5">
+                                <span className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                                    <MessageSquare className="h-3 w-3" /> Chat
+                                </span>
+                                <div className="flex items-center gap-1">
+                                    {!previewVisible && (
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-6 w-6"
+                                            onClick={() => setPreviewVisible(true)}
+                                            title="Show Preview"
+                                        >
+                                            <Monitor className="h-3.5 w-3.5" />
+                                        </Button>
+                                    )}
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-6 w-6"
+                                        onClick={() => chatPanelRef.current?.collapse()}
+                                    >
+                                        <PanelLeftClose className="h-3.5 w-3.5" />
+                                    </Button>
+                                </div>
+                            </div>
+                            <div className="flex-1 overflow-hidden">
+                                <ChatPanel
+                                    projectId={params.projectId}
+                                    onMessageSent={handleMessageSent}
+                                />
+                            </div>
+                        </div>
+                    </ResizablePanel>
+
+                    <ResizableHandle withHandle />
+
+                    {/* Preview Panel (center, conditionally rendered) */}
+                    {previewVisible && (
+                        <>
+                            <ResizablePanel
+                                defaultSize="56%"
+                                minSize="20%"
+                                className="flex flex-col"
+                            >
+                                <div className="flex h-full flex-col">
+                                    <div className="flex items-center justify-between border-b px-3 py-1.5">
+                                        <div className="flex items-center gap-2">
+                                            {chatCollapsed && (
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-6 w-6"
+                                                    onClick={() => chatPanelRef.current?.expand()}
+                                                >
+                                                    <PanelLeftOpen className="h-3.5 w-3.5" />
+                                                </Button>
+                                            )}
+                                            <span className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                                                <Monitor className="h-3 w-3" /> Preview
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                            {businessCollapsed && (
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-6 w-6"
+                                                    onClick={() => businessPanelRef.current?.expand()}
+                                                >
+                                                    <PanelRightOpen className="h-3.5 w-3.5" />
+                                                </Button>
+                                            )}
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-6 w-6"
+                                                onClick={() => setPreviewVisible(false)}
+                                                title="Hide Preview"
+                                            >
+                                                <PanelLeftClose className="h-3.5 w-3.5" />
+                                            </Button>
+                                        </div>
+                                    </div>
+                                    <div className="flex-1 overflow-hidden">
+                                        <UIPreview
+                                            url={project?.url || null}
+                                            screenshotUrl={project?.screenshot_url || null}
+                                            onOpenSettings={() => setUrlDialog(true)}
+                                        />
+                                    </div>
+                                </div>
+                            </ResizablePanel>
+
+                            <ResizableHandle withHandle />
+                        </>
+                    )}
+
+                    {/* Business Panel */}
+                    <ResizablePanel
+                        panelRef={businessPanelRef}
+                        defaultSize={previewVisible ? "22%" : "60%"}
+                        minSize="15%"
+                        maxSize={previewVisible ? "40%" : "85%"}
+                        collapsible
+                        collapsedSize="0%"
+                        onResize={(size: any) => setBusinessCollapsed(String(size) === "0%")}
+                        className="flex flex-col"
+                    >
+                        <div className="flex h-full flex-col">
+                            <div className="flex items-center justify-between border-b px-3 py-1.5">
+                                <div className="flex items-center gap-2">
+                                    {!previewVisible && (
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-6 w-6"
+                                            onClick={() => setPreviewVisible(true)}
+                                            title="Show Preview"
+                                        >
+                                            <Monitor className="h-3.5 w-3.5" />
+                                        </Button>
+                                    )}
+                                    <span className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                                        <BarChart3 className="h-3 w-3" /> Business
+                                    </span>
+                                </div>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6"
+                                    onClick={() => businessPanelRef.current?.collapse()}
+                                >
+                                    <PanelRightClose className="h-3.5 w-3.5" />
+                                </Button>
+                            </div>
+                            <div className="flex-1 overflow-hidden">
+                                <BusinessPanel
+                                    projectId={params.projectId}
+                                    refreshKey={refreshKey}
+                                />
+                            </div>
+                        </div>
+                    </ResizablePanel>
+                </ResizablePanelGroup>
             </div>
 
             {/* Mobile/Tablet Layout: Tabs */}

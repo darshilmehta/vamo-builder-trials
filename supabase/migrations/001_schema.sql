@@ -256,6 +256,12 @@ ALTER TABLE offers ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Owner can view own offers"
   ON offers FOR SELECT USING (auth.uid() = user_id);
 
+CREATE POLICY "Owner can insert offers"
+  ON offers FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Owner can update own offers"
+  ON offers FOR UPDATE USING (auth.uid() = user_id);
+
 -- ============================================================
 -- 9. analytics_events
 -- ============================================================

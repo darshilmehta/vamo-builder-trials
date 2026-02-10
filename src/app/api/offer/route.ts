@@ -102,6 +102,7 @@ export async function POST(request: Request) {
                 const completion = await openai.chat.completions.create({
                     model: "gpt-4o-mini",
                     temperature: 0.3,
+                    response_format: { type: "json_object" },
                     messages: [
                         {
                             role: "system",
@@ -132,7 +133,14 @@ Rules:
                     const jsonStr = rawContent.replace(/```json?\n?/g, "").replace(/```/g, "").trim();
                     offer = JSON.parse(jsonStr);
                 } catch {
-                    // Keep default offer
+                    const jsonMatch = rawContent.match(/\{[\s\S]*\}/);
+                    if (jsonMatch) {
+                        try {
+                            offer = JSON.parse(jsonMatch[0]);
+                        } catch {
+                            // Keep default offer
+                        }
+                    }
                 }
             } catch (error) {
                 console.error("OpenAI offer error:", error);

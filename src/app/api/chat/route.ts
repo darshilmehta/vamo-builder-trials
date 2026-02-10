@@ -103,6 +103,7 @@ If insufficient data, say so. Progress delta max is 5 per prompt. Be realistic. 
                 const completion = await openai.chat.completions.create({
                     model: "gpt-4o-mini",
                     temperature: 0.5,
+                    response_format: { type: "json_object" },
                     messages: chatMessages,
                 });
 
@@ -112,7 +113,17 @@ If insufficient data, say so. Progress delta max is 5 per prompt. Be realistic. 
                     const jsonStr = rawContent.replace(/```json?\n?/g, "").replace(/```/g, "").trim();
                     aiResponse = JSON.parse(jsonStr);
                 } catch {
-                    aiResponse.reply = rawContent || aiResponse.reply;
+                    // Fallback: try to extract JSON object from mixed text
+                    const jsonMatch = rawContent.match(/\{[\s\S]*\}/);
+                    if (jsonMatch) {
+                        try {
+                            aiResponse = JSON.parse(jsonMatch[0]);
+                        } catch {
+                            aiResponse.reply = rawContent || aiResponse.reply;
+                        }
+                    } else {
+                        aiResponse.reply = rawContent || aiResponse.reply;
+                    }
                 }
             } catch (error) {
                 console.error("OpenAI error:", error);

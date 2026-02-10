@@ -7,10 +7,10 @@ todo
 [ ] /builder/<project_id> this page has many UI bugs, things overflow, needs to be fixed
 [ ] during redemption, go to the actual reward_ledgar to calc the entire balance, if any parity, show error and update pineapples
 [ ] validations to add links to the website, socials, etc
-[ ] add google o-auth
 [ ] listings page not visible, can not explore each listing from marketplace
 [ ] chat message types to also have general type. it would be selected by default
 [ ] upgrade the UI of the website and keep it in line with Vamos design system
 [ ] website is not optimal, takes time to load, and no loaders added for user experience
 
 [ ] rewrite / delete / update chat messages and retract progress based on that
+[ ] add testing module for code coverage

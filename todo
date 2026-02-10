@@ -6,6 +6,7 @@ todo
 [ ] session management, sometimes needs reload, some issue here
 [ ] /builder/[project_id] this page has many UI bugs, things overflow, needs to be fixed
 [ ] during redemption, go to the actual reward_ledgar to calc the entire balance, if any parity, show error and update pineapples
+[ ] validations to add links to the website, socials, etc
 
 [ ] upgrade the UI of the website and keep it in line with Vamo's design system
 [ ] website is not optimal, takes time to load, and no loaders added for user experience

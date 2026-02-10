@@ -3,8 +3,8 @@ import { createServerClient } from "@supabase/ssr";
 
 import { assertSupabaseEnv } from "@/lib/env";
 
-export async function createSupabaseServerClient() {
-  const cookieStore = await cookies();
+export function createSupabaseServerClient() {
+  const cookieStore = cookies();
   const { supabaseUrl, supabaseAnonKey } = assertSupabaseEnv();
 
   return createServerClient(supabaseUrl, supabaseAnonKey, {
@@ -15,10 +15,15 @@ export async function createSupabaseServerClient() {
           value: cookie.value,
         }));
       },
-      setAll(cookiesToSet) {
-        cookiesToSet.forEach(({ name, value, options }) => {
-          cookieStore.set(name, value, options);
-        });
+      setAll(cookiesToSet: { name: string; value: string; options?: Record<string, unknown> }[]) {
+        try {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            cookieStore.set(name, value, options);
+          });
+        } catch {
+          // setAll can be called from Server Components where cookies are read-only.
+          // This is safe to ignore if middleware is refreshing sessions.
+        }
       },
     },
   });

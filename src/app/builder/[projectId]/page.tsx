@@ -9,6 +9,7 @@ import { trackEvent } from "@/lib/analytics";
 import { ChatPanel } from "@/components/builder/ChatPanel";
 import { UIPreview } from "@/components/builder/UIPreview";
 import { BusinessPanel } from "@/components/builder/BusinessPanel";
+import { LLMLoadingProvider, useLLMLoading } from "@/components/LLMLoadingContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -50,6 +51,19 @@ export default function BuilderPage({
 }: {
     params: { projectId: string };
 }) {
+    return (
+        <LLMLoadingProvider>
+            <BuilderPageContent params={params} />
+        </LLMLoadingProvider>
+    );
+}
+
+function BuilderPageContent({
+    params,
+}: {
+    params: { projectId: string };
+}) {
+    const { isLLMLoading, startLLMCall, endLLMCall } = useLLMLoading();
     const router = useRouter();
     const [project, setProject] = useState<Project | null>(null);
     const [profile, setProfile] = useState<Profile | null>(null);
@@ -175,6 +189,7 @@ export default function BuilderPage({
     async function handleGetOffer() {
         setOfferDialog(true);
         setOfferLoading(true);
+        startLLMCall();
         setOffer(null);
 
         try {
@@ -201,6 +216,7 @@ export default function BuilderPage({
             setOfferDialog(false);
         } finally {
             setOfferLoading(false);
+            endLLMCall();
         }
     }
 
@@ -318,6 +334,7 @@ export default function BuilderPage({
                             variant="outline"
                             size="sm"
                             className="gap-1"
+                            disabled={isLLMLoading}
                             onClick={() => {
                                 setListingTitle(project?.name || "");
                                 setListingPriceLow(String(project?.valuation_low || ""));
@@ -330,7 +347,7 @@ export default function BuilderPage({
                         </Button>
                     )}
                     {(project?.progress_score || 0) >= 10 && (
-                        <Button size="sm" className="gap-1" onClick={handleGetOffer}>
+                        <Button size="sm" className="gap-1" onClick={handleGetOffer} disabled={isLLMLoading}>
                             <Sparkles className="h-3.5 w-3.5" />
                             Get Vamo Offer
                         </Button>

@@ -24,6 +24,25 @@ export async function POST(request: Request) {
             );
         }
 
+        // ── Rate limit: block LLM calls if over threshold ──
+        const oneHourAgoCheck = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+        const { count: recentPromptCount } = await supabase
+            .from("messages")
+            .select("*", { count: "exact", head: true })
+            .eq("project_id", projectId)
+            .eq("user_id", user.id)
+            .eq("role", "user")
+            .gte("created_at", oneHourAgoCheck);
+
+        if ((recentPromptCount || 0) >= RATE_LIMIT_MAX_PROMPTS_PER_HOUR) {
+            return NextResponse.json(
+                {
+                    error: `Rate limit exceeded. You can send up to ${RATE_LIMIT_MAX_PROMPTS_PER_HOUR} messages per hour. Please try again later.`,
+                },
+                { status: 429 }
+            );
+        }
+
         // Insert user message
         const { data: userMsg, error: msgError } = await supabase
             .from("messages")

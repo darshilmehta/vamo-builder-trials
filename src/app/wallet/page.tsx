@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { useRealtimeTable } from "@/lib/useRealtimeTable";
 import { trackEvent } from "@/lib/analytics";
 import { Button } from "@/components/ui/button";
 import {
@@ -49,45 +50,83 @@ export default function WalletPage() {
     const [redeemAmount, setRedeemAmount] = useState("");
     const [redeemLoading, setRedeemLoading] = useState(false);
     const [page, setPage] = useState(0);
+    const [userId, setUserId] = useState<string | null>(null);
     const PAGE_SIZE = 20;
 
-    useEffect(() => {
-        async function load() {
-            const supabase = getSupabaseBrowserClient();
-            const {
-                data: { user },
-            } = await supabase.auth.getUser();
+    const loadData = useCallback(async () => {
+        const supabase = getSupabaseBrowserClient();
+        const {
+            data: { user },
+        } = await supabase.auth.getUser();
 
-            if (!user) return;
+        if (!user) return;
+        setUserId(user.id);
 
-            const { data: prof } = await supabase
-                .from("profiles")
-                .select("*")
-                .eq("id", user.id)
-                .single();
+        const { data: prof } = await supabase
+            .from("profiles")
+            .select("*")
+            .eq("id", user.id)
+            .single();
 
-            const { data: rw } = await supabase
-                .from("reward_ledger")
-                .select("*")
-                .eq("user_id", user.id)
-                .order("created_at", { ascending: false })
-                .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+        const { data: rw } = await supabase
+            .from("reward_ledger")
+            .select("*")
+            .eq("user_id", user.id)
+            .order("created_at", { ascending: false })
+            .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
 
-            const { data: rd } = await supabase
-                .from("redemptions")
-                .select("*")
-                .eq("user_id", user.id)
-                .order("created_at", { ascending: false });
+        const { data: rd } = await supabase
+            .from("redemptions")
+            .select("*")
+            .eq("user_id", user.id)
+            .order("created_at", { ascending: false });
 
-            setProfile(prof as Profile);
-            setRewards((rw as RewardLedgerEntry[]) || []);
-            setRedemptions((rd as Redemption[]) || []);
-            setLoading(false);
+        setProfile(prof as Profile);
+        setRewards((rw as RewardLedgerEntry[]) || []);
+        setRedemptions((rd as Redemption[]) || []);
+        setLoading(false);
 
-            trackEvent("page_view", { path: "/wallet" });
-        }
-        load();
+        trackEvent("page_view", { path: "/wallet" });
     }, [page]);
+
+    useEffect(() => {
+        loadData();
+    }, [loadData]);
+
+    // Realtime: profile balance updates
+    useRealtimeTable({
+        table: "profiles",
+        filter: userId ? `id=eq.${userId}` : undefined,
+        events: ["UPDATE"],
+        enabled: !!userId,
+        onEvent: (_eventType, payload) => {
+            const updated = payload.new as Profile;
+            setProfile(updated);
+        },
+    });
+
+    // Realtime: new reward ledger entries
+    useRealtimeTable({
+        table: "reward_ledger",
+        filter: userId ? `user_id=eq.${userId}` : undefined,
+        events: ["INSERT"],
+        enabled: !!userId,
+        onEvent: () => {
+            // Re-fetch to maintain pagination
+            loadData();
+        },
+    });
+
+    // Realtime: redemption status changes
+    useRealtimeTable({
+        table: "redemptions",
+        filter: userId ? `user_id=eq.${userId}` : undefined,
+        events: ["INSERT", "UPDATE"],
+        enabled: !!userId,
+        onEvent: () => {
+            loadData();
+        },
+    });
 
     async function handleRedeem() {
         const amount = parseInt(redeemAmount);
@@ -119,15 +158,6 @@ export default function WalletPage() {
                 "Redemption submitted! You'll receive your reward within 48 hours. 🎉"
             );
             trackEvent("reward_redeemed", { amount });
-
-            // Refresh data
-            const supabase = getSupabaseBrowserClient();
-            const { data: rd } = await supabase
-                .from("redemptions")
-                .select("*")
-                .eq("user_id", profile?.id)
-                .order("created_at", { ascending: false });
-            setRedemptions((rd as Redemption[]) || []);
         } catch (error) {
             toast.error(
                 error instanceof Error ? error.message : "Redemption failed"
@@ -253,8 +283,8 @@ export default function WalletPage() {
                                                 </TableCell>
                                                 <TableCell
                                                     className={`text-right font-medium ${entry.reward_amount >= 0
-                                                            ? "text-green-600"
-                                                            : "text-red-600"
+                                                        ? "text-green-600"
+                                                        : "text-red-600"
                                                         }`}
                                                 >
                                                     {entry.reward_amount >= 0 ? "+" : ""}

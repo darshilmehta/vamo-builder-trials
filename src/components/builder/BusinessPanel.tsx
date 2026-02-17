@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { useRealtimeTable } from "@/lib/useRealtimeTable";
 import { trackEvent } from "@/lib/analytics";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -36,6 +37,15 @@ import {
     Activity,
     Clock,
 } from "lucide-react";
+import {
+    LineChart,
+    Line,
+    XAxis,
+    YAxis,
+    CartesianGrid,
+    Tooltip,
+    ResponsiveContainer,
+} from "recharts";
 import type { Project, ActivityEvent } from "@/lib/types";
 
 interface BusinessPanelProps {
@@ -103,6 +113,7 @@ export function BusinessPanel({ projectId, refreshKey }: BusinessPanelProps) {
     const [project, setProject] = useState<Project | null>(null);
     const [events, setEvents] = useState<ActivityEvent[]>([]);
     const [tractionSignals, setTractionSignals] = useState<ActivityEvent[]>([]);
+    const [chartData, setChartData] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [editingWhy, setEditingWhy] = useState(false);
     const [whyText, setWhyText] = useState("");
@@ -135,7 +146,7 @@ export function BusinessPanel({ projectId, refreshKey }: BusinessPanelProps) {
 
         setEvents((evts as ActivityEvent[]) || []);
 
-        // Load traction signals
+        // Load traction signals for charts and list
         const { data: signals } = await supabase
             .from("activity_events")
             .select("*")
@@ -145,9 +156,62 @@ export function BusinessPanel({ projectId, refreshKey }: BusinessPanelProps) {
                 "customer_added",
                 "revenue_logged",
             ])
-            .order("created_at", { ascending: false });
+            .order("created_at", { ascending: true }); // Ascending for chart calculation
 
-        setTractionSignals((signals as ActivityEvent[]) || []);
+        const rawSignals = (signals as ActivityEvent[]) || [];
+        setTractionSignals([...rawSignals].reverse()); // Reverse for list display (descending)
+
+        // Process data for chart
+        if (rawSignals.length > 0) {
+            const data: any[] = [];
+            let features = 0;
+            let customers = 0;
+            let revenue = 0;
+
+            // Calculate progress increment per signal to simulate history
+            // We want the final point to equal the current progress score
+            const currentScore = proj ? (proj as Project).progress_score : 0;
+            const scorePerSignal = rawSignals.length > 0 ? currentScore / rawSignals.length : 0;
+            let cumulativeProgress = 0;
+
+            rawSignals.forEach((signal, index) => {
+                if (signal.event_type === "feature_shipped") features++;
+                if (signal.event_type === "customer_added") customers++;
+                if (signal.event_type === "revenue_logged") revenue++;
+
+                // Add proportional progress score
+                cumulativeProgress += scorePerSignal;
+                // Ensure the last point matches exactly, otherwise round
+                const progress = index === rawSignals.length - 1
+                    ? currentScore
+                    : Math.round(cumulativeProgress * 10) / 10;
+
+                const date = new Date(signal.created_at).toLocaleDateString(undefined, {
+                    month: "short",
+                    day: "numeric",
+                });
+
+                // Check if last entry is same date to aggregate
+                const lastEntry = data[data.length - 1];
+                if (lastEntry && lastEntry.date === date) {
+                    lastEntry.features = features;
+                    lastEntry.customers = customers;
+                    lastEntry.revenue = revenue;
+                    lastEntry.progress = progress;
+                } else {
+                    data.push({
+                        date,
+                        features,
+                        customers,
+                        revenue,
+                        progress,
+                    });
+                }
+            });
+            setChartData(data);
+        } else {
+            setChartData([]);
+        }
 
         // Check linked assets
         const { data: links } = await supabase
@@ -168,6 +232,28 @@ export function BusinessPanel({ projectId, refreshKey }: BusinessPanelProps) {
     useEffect(() => {
         loadData();
     }, [loadData, refreshKey]);
+
+    // Realtime: project updates
+    useRealtimeTable({
+        table: "projects",
+        filter: `id=eq.${projectId}`,
+        events: ["UPDATE"],
+        onEvent: (_eventType, payload) => {
+            const updated = payload.new as Project;
+            setProject(updated);
+            setWhyText(updated.why_built || "");
+        },
+    });
+
+    // Realtime: activity events
+    useRealtimeTable({
+        table: "activity_events",
+        filter: `project_id=eq.${projectId}`,
+        events: ["INSERT"],
+        onEvent: () => {
+            loadData();
+        },
+    });
 
     async function saveWhyBuilt() {
         const supabase = getSupabaseBrowserClient();
@@ -326,12 +412,12 @@ export function BusinessPanel({ projectId, refreshKey }: BusinessPanelProps) {
                         <Badge
                             variant="secondary"
                             className={`text-xs ${(project?.progress_score || 0) <= 25
-                                    ? "bg-red-100 text-red-700"
-                                    : (project?.progress_score || 0) <= 50
-                                        ? "bg-yellow-100 text-yellow-700"
-                                        : (project?.progress_score || 0) <= 75
-                                            ? "bg-green-100 text-green-700"
-                                            : "bg-blue-100 text-blue-700"
+                                ? "bg-red-100 text-red-700"
+                                : (project?.progress_score || 0) <= 50
+                                    ? "bg-yellow-100 text-yellow-700"
+                                    : (project?.progress_score || 0) <= 75
+                                        ? "bg-green-100 text-green-700"
+                                        : "bg-blue-100 text-blue-700"
                                 }`}
                         >
                             {getProgressLabel(project?.progress_score || 0)}
@@ -353,6 +439,103 @@ export function BusinessPanel({ projectId, refreshKey }: BusinessPanelProps) {
                             />
                         </div>
                     </div>
+                </div>
+
+                <Separator />
+
+                {/* Growth Trends */}
+                <div>
+                    <div className="mb-2 flex items-center gap-2 text-sm font-medium">
+                        <TrendingUp className="h-4 w-4" />
+                        Growth Trends
+                    </div>
+                    {chartData.length > 0 ? (
+                        <div className="h-[200px] w-full">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <LineChart
+                                    data={chartData}
+                                    margin={{ top: 5, right: 5, left: -20, bottom: 0 }}
+                                >
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                    <XAxis
+                                        dataKey="date"
+                                        tick={{ fontSize: 10 }}
+                                        tickLine={false}
+                                        axisLine={false}
+                                    />
+                                    <YAxis
+                                        yAxisId="left"
+                                        tick={{ fontSize: 10 }}
+                                        tickLine={false}
+                                        axisLine={false}
+                                    />
+                                    <YAxis
+                                        yAxisId="right"
+                                        orientation="right"
+                                        domain={[0, 100]}
+                                        tick={{ fontSize: 10 }}
+                                        tickLine={false}
+                                        axisLine={false}
+                                        width={30}
+                                    />
+                                    <Tooltip
+                                        contentStyle={{
+                                            backgroundColor: "hsl(var(--background))",
+                                            borderColor: "hsl(var(--border))",
+                                            borderRadius: "var(--radius)",
+                                            fontSize: "12px",
+                                        }}
+                                    />
+                                    <Line
+                                        yAxisId="left"
+                                        type="monotone"
+                                        dataKey="features"
+                                        stroke="#3b82f6"
+                                        strokeWidth={2}
+                                        dot={false}
+                                        name="Features"
+                                    />
+                                    <Line
+                                        yAxisId="left"
+                                        type="monotone"
+                                        dataKey="customers"
+                                        stroke="#22c55e"
+                                        strokeWidth={2}
+                                        dot={false}
+                                        name="Customers"
+                                    />
+                                    <Line
+                                        yAxisId="left"
+                                        type="monotone"
+                                        dataKey="revenue"
+                                        stroke="#a855f7"
+                                        strokeWidth={2}
+                                        dot={false}
+                                        name="Revenue"
+                                    />
+                                    <Line
+                                        yAxisId="right"
+                                        type="monotone"
+                                        dataKey="progress"
+                                        stroke="#eab308" // Yellow-500
+                                        strokeWidth={2}
+                                        dot={false}
+                                        name="Progress Score"
+                                        strokeDasharray="5 5"
+                                    />
+                                </LineChart>
+                            </ResponsiveContainer>
+                        </div>
+                    ) : (
+                        <div className="relative flex h-[150px] items-center justify-center overflow-hidden rounded-lg border border-dashed bg-muted/20">
+                            <div className="text-center">
+                                <Activity className="mx-auto mb-2 h-8 w-8 text-muted-foreground/30" />
+                                <p className="text-xs text-muted-foreground">
+                                    Not enough data for trends yet
+                                </p>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 <Separator />

@@ -3,7 +3,9 @@
 import { useState, useRef, useEffect } from "react";
 import { toast } from "sonner";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { useRealtimeTable } from "@/lib/useRealtimeTable";
 import { trackEvent } from "@/lib/analytics";
+import { useLLMLoading } from "@/components/LLMLoadingContext";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -52,12 +54,14 @@ function timeAgo(dateStr: string) {
 }
 
 export function ChatPanel({ projectId, onMessageSent }: ChatPanelProps) {
+    const { isLLMLoading, startLLMCall, endLLMCall } = useLLMLoading();
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState("");
     const [selectedTag, setSelectedTag] = useState<MessageTag>(null);
     const [loading, setLoading] = useState(false);
     const [initialLoading, setInitialLoading] = useState(true);
     const scrollRef = useRef<HTMLDivElement>(null);
+    const isBusy = loading || isLLMLoading;
 
     // Load messages
     useEffect(() => {
@@ -75,6 +79,21 @@ export function ChatPanel({ projectId, onMessageSent }: ChatPanelProps) {
         loadMessages();
     }, [projectId]);
 
+    // Realtime: new messages in this project
+    useRealtimeTable({
+        table: "messages",
+        filter: `project_id=eq.${projectId}`,
+        events: ["INSERT"],
+        onEvent: (_eventType, payload) => {
+            const newMsg = payload.new as Message;
+            setMessages((prev) => {
+                // Avoid duplicates from optimistic updates
+                if (prev.some((m) => m.id === newMsg.id)) return prev;
+                return [...prev, newMsg];
+            });
+        },
+    });
+
     // Scroll to bottom on new messages
     useEffect(() => {
         if (scrollRef.current) {
@@ -83,11 +102,12 @@ export function ChatPanel({ projectId, onMessageSent }: ChatPanelProps) {
     }, [messages]);
 
     async function handleSend() {
-        if (!input.trim() || loading) return;
+        if (!input.trim() || isBusy) return;
 
         const messageText = input.trim();
         setInput("");
         setLoading(true);
+        startLLMCall();
 
         // Optimistically add user message
         const tempUserMsg: Message = {
@@ -160,6 +180,7 @@ export function ChatPanel({ projectId, onMessageSent }: ChatPanelProps) {
             );
         } finally {
             setLoading(false);
+            endLLMCall();
             setSelectedTag(null);
         }
     }
@@ -298,11 +319,11 @@ export function ChatPanel({ projectId, onMessageSent }: ChatPanelProps) {
                         placeholder="What did you work on today?"
                         className="min-h-[40px] max-h-[120px] resize-none"
                         rows={1}
-                        disabled={loading}
+                        disabled={isBusy}
                     />
                     <Button
                         onClick={handleSend}
-                        disabled={!input.trim() || loading}
+                        disabled={!input.trim() || isBusy}
                         size="icon"
                         className="shrink-0"
                     >

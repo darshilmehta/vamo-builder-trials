@@ -5,10 +5,12 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { useRealtimeTable } from "@/lib/useRealtimeTable";
 import { trackEvent } from "@/lib/analytics";
 import { ChatPanel } from "@/components/builder/ChatPanel";
 import { UIPreview } from "@/components/builder/UIPreview";
 import { BusinessPanel } from "@/components/builder/BusinessPanel";
+import { LLMLoadingProvider, useLLMLoading } from "@/components/LLMLoadingContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -50,6 +52,19 @@ export default function BuilderPage({
 }: {
     params: { projectId: string };
 }) {
+    return (
+        <LLMLoadingProvider>
+            <BuilderPageContent params={params} />
+        </LLMLoadingProvider>
+    );
+}
+
+function BuilderPageContent({
+    params,
+}: {
+    params: { projectId: string };
+}) {
+    const { isLLMLoading, startLLMCall, endLLMCall } = useLLMLoading();
     const router = useRouter();
     const [project, setProject] = useState<Project | null>(null);
     const [profile, setProfile] = useState<Profile | null>(null);
@@ -78,6 +93,7 @@ export default function BuilderPage({
     const [chatCollapsed, setChatCollapsed] = useState(false);
     const [previewVisible, setPreviewVisible] = useState(true);
     const [businessCollapsed, setBusinessCollapsed] = useState(false);
+    const [userId, setUserId] = useState<string | null>(null);
 
     useEffect(() => {
         async function load() {
@@ -90,6 +106,7 @@ export default function BuilderPage({
                 router.push("/login");
                 return;
             }
+            setUserId(user.id);
 
             const { data: prof } = await supabase
                 .from("profiles")
@@ -119,6 +136,31 @@ export default function BuilderPage({
         }
         load();
     }, [params.projectId, router, refreshKey]);
+
+    // Realtime: profile balance changes
+    useRealtimeTable({
+        table: "profiles",
+        filter: userId ? `id=eq.${userId}` : undefined,
+        events: ["UPDATE"],
+        enabled: !!userId,
+        onEvent: (_eventType, payload) => {
+            const updated = payload.new as Profile;
+            setProfile(updated);
+        },
+    });
+
+    // Realtime: project changes
+    useRealtimeTable({
+        table: "projects",
+        filter: `id=eq.${params.projectId}`,
+        events: ["UPDATE"],
+        onEvent: (_eventType, payload) => {
+            const updated = payload.new as Project;
+            setProject(updated);
+            setProjectName(updated.name);
+            setProjectUrl(updated.url || "");
+        },
+    });
 
     function handleMessageSent() {
         setRefreshKey((k) => k + 1);
@@ -175,6 +217,7 @@ export default function BuilderPage({
     async function handleGetOffer() {
         setOfferDialog(true);
         setOfferLoading(true);
+        startLLMCall();
         setOffer(null);
 
         try {
@@ -201,6 +244,7 @@ export default function BuilderPage({
             setOfferDialog(false);
         } finally {
             setOfferLoading(false);
+            endLLMCall();
         }
     }
 
@@ -318,6 +362,7 @@ export default function BuilderPage({
                             variant="outline"
                             size="sm"
                             className="gap-1"
+                            disabled={isLLMLoading}
                             onClick={() => {
                                 setListingTitle(project?.name || "");
                                 setListingPriceLow(String(project?.valuation_low || ""));
@@ -330,7 +375,7 @@ export default function BuilderPage({
                         </Button>
                     )}
                     {(project?.progress_score || 0) >= 10 && (
-                        <Button size="sm" className="gap-1" onClick={handleGetOffer}>
+                        <Button size="sm" className="gap-1" onClick={handleGetOffer} disabled={isLLMLoading}>
                             <Sparkles className="h-3.5 w-3.5" />
                             Get Vamo Offer
                         </Button>

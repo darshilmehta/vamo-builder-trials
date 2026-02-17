@@ -72,3 +72,19 @@ export async function signOutAction() {
   revalidatePath("/", "layout");
   redirect("/login");
 }
+
+export async function signInWithGoogle(origin: string) {
+  const supabase = createSupabaseServerClient();
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo: `${origin}/auth/callback`,
+    },
+  });
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  return { url: data.url };
+}

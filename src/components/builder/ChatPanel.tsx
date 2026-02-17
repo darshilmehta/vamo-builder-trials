@@ -60,7 +60,7 @@ export function ChatPanel({ projectId, onMessageSent }: ChatPanelProps) {
     const [selectedTag, setSelectedTag] = useState<MessageTag>(null);
     const [loading, setLoading] = useState(false);
     const [initialLoading, setInitialLoading] = useState(true);
-    const scrollRef = useRef<HTMLDivElement>(null);
+    const messagesEndRef = useRef<HTMLDivElement>(null);
     const isBusy = loading || isLLMLoading;
 
     // Load messages
@@ -96,10 +96,8 @@ export function ChatPanel({ projectId, onMessageSent }: ChatPanelProps) {
 
     // Scroll to bottom on new messages
     useEffect(() => {
-        if (scrollRef.current) {
-            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-        }
-    }, [messages]);
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, [messages, loading]);
 
     async function handleSend() {
         if (!input.trim() || isBusy) return;
@@ -206,7 +204,7 @@ export function ChatPanel({ projectId, onMessageSent }: ChatPanelProps) {
     return (
         <div className="flex h-full flex-col">
             {/* Messages */}
-            <ScrollArea className="flex-1 p-4" ref={scrollRef}>
+            <ScrollArea className="flex-1 p-4">
                 <div className="space-y-4">
                     {messages.length === 0 && (
                         <div className="py-12 text-center">
@@ -287,6 +285,7 @@ export function ChatPanel({ projectId, onMessageSent }: ChatPanelProps) {
                             </div>
                         </div>
                     )}
+                    <div ref={messagesEndRef} />
                 </div>
             </ScrollArea>
 

@@ -283,8 +283,8 @@ export default function WalletPage() {
                                                 </TableCell>
                                                 <TableCell
                                                     className={`text-right font-medium ${entry.reward_amount >= 0
-                                                            ? "text-green-600"
-                                                            : "text-red-600"
+                                                        ? "text-green-600"
+                                                        : "text-red-600"
                                                         }`}
                                                 >
                                                     {entry.reward_amount >= 0 ? "+" : ""}

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { useRealtimeTable } from "@/lib/useRealtimeTable";
 import { Button } from "@/components/ui/button";
@@ -14,7 +15,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Store } from "lucide-react";
+import { Store, ArrowRight } from "lucide-react";
 import type { Listing } from "@/lib/types";
 
 type ListingWithProject = Listing & {
@@ -82,7 +83,13 @@ export default function MarketplacePage() {
                 <div className="container mx-auto flex items-center justify-between px-4 py-4">
                     <div className="flex items-center gap-2">
                         <Link href="/" className="flex items-center gap-2">
-                            <span className="text-2xl">🍍</span>
+                            <Image
+                                src="/vamo_logo.png"
+                                alt="Vamo Logo"
+                                width={32}
+                                height={32}
+                                className="w-8 h-8"
+                            />
                             <span className="text-xl font-bold">Vamo</span>
                         </Link>
                         <Badge variant="secondary" className="ml-2">
@@ -129,49 +136,50 @@ export default function MarketplacePage() {
                 ) : (
                     <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                         {listings.map((listing) => (
-                            <Card
-                                key={listing.id}
-                                className="overflow-hidden transition-all hover:shadow-md"
-                            >
-                                {listing.screenshots && (listing.screenshots as string[]).length > 0 && (
-                                    // eslint-disable-next-line @next/next/no-img-element
-                                    <img
-                                        src={(listing.screenshots as string[])[0]}
-                                        alt={listing.title}
-                                        className="h-40 w-full object-cover"
-                                    />
-                                )}
-                                <CardHeader>
-                                    <CardTitle className="text-lg">{listing.title}</CardTitle>
-                                    {listing.description && (
-                                        <CardDescription className="line-clamp-2">
-                                            {listing.description}
-                                        </CardDescription>
+                            <Link key={listing.id} href={`/marketplace/${listing.id}`}>
+                                <Card
+                                    className="overflow-hidden transition-all hover:shadow-md"
+                                >
+                                    {listing.screenshots && (listing.screenshots as string[]).length > 0 && (
+                                        // eslint-disable-next-line @next/next/no-img-element
+                                        <img
+                                            src={(listing.screenshots as string[])[0]}
+                                            alt={listing.title}
+                                            className="h-40 w-full object-cover"
+                                        />
                                     )}
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            {listing.asking_price_low != null &&
-                                                listing.asking_price_high != null ? (
-                                                <p className="font-semibold text-green-700">
-                                                    ${listing.asking_price_low.toLocaleString()} – $
-                                                    {listing.asking_price_high.toLocaleString()}
-                                                </p>
-                                            ) : (
-                                                <p className="text-sm text-muted-foreground">
-                                                    Price on request
-                                                </p>
+                                    <CardHeader>
+                                        <CardTitle className="text-lg">{listing.title}</CardTitle>
+                                        {listing.description && (
+                                            <CardDescription className="line-clamp-2">
+                                                {listing.description}
+                                            </CardDescription>
+                                        )}
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                {listing.asking_price_low != null &&
+                                                    listing.asking_price_high != null ? (
+                                                    <p className="font-semibold text-green-700">
+                                                        ${listing.asking_price_low.toLocaleString()} – $
+                                                        {listing.asking_price_high.toLocaleString()}
+                                                    </p>
+                                                ) : (
+                                                    <p className="text-sm text-muted-foreground">
+                                                        Price on request
+                                                    </p>
+                                                )}
+                                            </div>
+                                            {listing.projects && (
+                                                <Badge variant="secondary">
+                                                    {listing.projects.progress_score}% progress
+                                                </Badge>
                                             )}
                                         </div>
-                                        {listing.projects && (
-                                            <Badge variant="secondary">
-                                                {listing.projects.progress_score}% progress
-                                            </Badge>
-                                        )}
-                                    </div>
-                                </CardContent>
-                            </Card>
+                                    </CardContent>
+                                </Card>
+                            </Link>
                         ))}
                     </div>
                 )}

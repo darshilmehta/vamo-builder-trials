@@ -4,6 +4,7 @@ import { useFormState } from "react-dom";
 import { useFormStatus } from "react-dom";
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 
 import { signUpAction, signInWithGoogle } from "@/actions/auth";
 import { Button } from "@/components/ui/button";
@@ -95,7 +96,15 @@ export default function SignupPage() {
         <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-yellow-50 via-white to-green-50 p-4">
             <Card className="w-full max-w-md">
                 <CardHeader className="text-center">
-                    <div className="mx-auto mb-2 text-4xl">🍍</div>
+                    <div className="mx-auto mb-2 flex justify-center">
+                        <Image
+                            src="/vamo_logo.png"
+                            alt="Vamo Logo"
+                            width={48}
+                            height={48}
+                            className="w-12 h-12"
+                        />
+                    </div>
                     <CardTitle className="text-2xl font-bold">Join Vamo</CardTitle>
                     <CardDescription>
                         Create an account and start building your startup

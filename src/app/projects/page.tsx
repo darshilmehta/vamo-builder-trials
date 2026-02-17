@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { useRealtimeTable } from "@/lib/useRealtimeTable";
@@ -127,8 +128,15 @@ export default function ProjectsPage() {
             <header className="border-b bg-white/80 backdrop-blur-sm">
                 <div className="container mx-auto flex items-center justify-between px-4 py-4">
                     <div className="flex items-center gap-3">
-                        <Link href="/projects" className="text-xl font-bold">
-                            <span className="text-2xl">🍍</span> Vamo
+                        <Link href="/projects" className="text-xl font-bold flex items-center gap-2">
+                            <Image
+                                src="/vamo_logo.png"
+                                alt="Vamo Logo"
+                                width={32}
+                                height={32}
+                                className="w-8 h-8"
+                            />
+                            Vamo
                         </Link>
                     </div>
                     <div className="flex items-center gap-3">

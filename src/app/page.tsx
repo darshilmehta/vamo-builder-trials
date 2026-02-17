@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Sparkles, TrendingUp, DollarSign } from "lucide-react";
 
@@ -9,7 +10,13 @@ export default function HomePage() {
       <header className="border-b bg-white/60 backdrop-blur-sm">
         <div className="container mx-auto flex items-center justify-between px-4 py-4">
           <div className="flex items-center gap-2">
-            <span className="text-2xl">🍍</span>
+            <Image
+              src="/vamo_logo.png"
+              alt="Vamo Logo"
+              width={32}
+              height={32}
+              className="w-8 h-8"
+            />
             <span className="text-xl font-bold">Vamo</span>
           </div>
           <div className="flex items-center gap-3">

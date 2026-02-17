@@ -23,6 +23,24 @@ export async function POST(request: Request) {
             );
         }
 
+        // ── Rate limit: max 5 offer requests per hour ──
+        const oneHourAgoOffer = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+        const { count: recentOfferCount } = await supabase
+            .from("offers")
+            .select("*", { count: "exact", head: true })
+            .eq("project_id", projectId)
+            .eq("user_id", user.id)
+            .gte("created_at", oneHourAgoOffer);
+
+        if ((recentOfferCount || 0) >= 5) {
+            return NextResponse.json(
+                {
+                    error: "Rate limit exceeded. You can request up to 5 offers per hour. Please try again later.",
+                },
+                { status: 429 }
+            );
+        }
+
         // Load project
         const { data: project } = await supabase
             .from("projects")

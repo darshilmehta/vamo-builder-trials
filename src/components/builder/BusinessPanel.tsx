@@ -1,0 +1,523 @@
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
+import { toast } from "sonner";
+import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { trackEvent } from "@/lib/analytics";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Input } from "@/components/ui/input";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+    DialogFooter,
+} from "@/components/ui/dialog";
+import {
+    DollarSign,
+    Heart,
+    TrendingUp,
+    Github,
+    Linkedin,
+    Globe,
+    Link2,
+    Check,
+    Loader2,
+    Rocket,
+    Users,
+    Banknote,
+    Activity,
+    Clock,
+} from "lucide-react";
+import type { Project, ActivityEvent } from "@/lib/types";
+
+interface BusinessPanelProps {
+    projectId: string;
+    refreshKey: number;
+}
+
+function getProgressLabel(score: number) {
+    if (score <= 25) return "Early Stage";
+    if (score <= 50) return "Building";
+    if (score <= 75) return "Traction";
+    return "Growth";
+}
+
+function getProgressColor(score: number) {
+    if (score <= 25) return "bg-red-500";
+    if (score <= 50) return "bg-yellow-500";
+    if (score <= 75) return "bg-green-500";
+    return "bg-blue-500";
+}
+
+function timeAgo(dateStr: string) {
+    const seconds = Math.floor(
+        (Date.now() - new Date(dateStr).getTime()) / 1000
+    );
+    if (seconds < 60) return "just now";
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    return `${days}d ago`;
+}
+
+function eventIcon(type: string) {
+    switch (type) {
+        case "feature_shipped":
+            return <Rocket className="h-3.5 w-3.5 text-blue-500" />;
+        case "customer_added":
+            return <Users className="h-3.5 w-3.5 text-green-500" />;
+        case "revenue_logged":
+            return <Banknote className="h-3.5 w-3.5 text-purple-500" />;
+        case "prompt":
+            return <Activity className="h-3.5 w-3.5 text-gray-500" />;
+        case "reward_earned":
+            return <span className="text-sm">🍍</span>;
+        case "project_created":
+            return <Rocket className="h-3.5 w-3.5 text-yellow-500" />;
+        case "link_linkedin":
+            return <Linkedin className="h-3.5 w-3.5 text-blue-600" />;
+        case "link_github":
+            return <Github className="h-3.5 w-3.5" />;
+        case "link_website":
+            return <Globe className="h-3.5 w-3.5 text-green-600" />;
+        case "offer_received":
+            return <DollarSign className="h-3.5 w-3.5 text-green-500" />;
+        case "listing_created":
+            return <TrendingUp className="h-3.5 w-3.5 text-purple-500" />;
+        default:
+            return <Clock className="h-3.5 w-3.5 text-gray-400" />;
+    }
+}
+
+export function BusinessPanel({ projectId, refreshKey }: BusinessPanelProps) {
+    const [project, setProject] = useState<Project | null>(null);
+    const [events, setEvents] = useState<ActivityEvent[]>([]);
+    const [tractionSignals, setTractionSignals] = useState<ActivityEvent[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [editingWhy, setEditingWhy] = useState(false);
+    const [whyText, setWhyText] = useState("");
+    const [linkDialog, setLinkDialog] = useState<string | null>(null);
+    const [linkUrl, setLinkUrl] = useState("");
+    const [linkLoading, setLinkLoading] = useState(false);
+    const [linkedAssets, setLinkedAssets] = useState<Record<string, boolean>>({});
+
+    const loadData = useCallback(async () => {
+        const supabase = getSupabaseBrowserClient();
+
+        const { data: proj } = await supabase
+            .from("projects")
+            .select("*")
+            .eq("id", projectId)
+            .single();
+
+        if (proj) {
+            setProject(proj as Project);
+            setWhyText(proj.why_built || "");
+        }
+
+        // Load activity events
+        const { data: evts } = await supabase
+            .from("activity_events")
+            .select("*")
+            .eq("project_id", projectId)
+            .order("created_at", { ascending: false })
+            .limit(10);
+
+        setEvents((evts as ActivityEvent[]) || []);
+
+        // Load traction signals
+        const { data: signals } = await supabase
+            .from("activity_events")
+            .select("*")
+            .eq("project_id", projectId)
+            .in("event_type", [
+                "feature_shipped",
+                "customer_added",
+                "revenue_logged",
+            ])
+            .order("created_at", { ascending: false });
+
+        setTractionSignals((signals as ActivityEvent[]) || []);
+
+        // Check linked assets
+        const { data: links } = await supabase
+            .from("activity_events")
+            .select("event_type")
+            .eq("project_id", projectId)
+            .in("event_type", ["link_linkedin", "link_github", "link_website"]);
+
+        const linked: Record<string, boolean> = {};
+        (links || []).forEach((l) => {
+            linked[l.event_type as string] = true;
+        });
+        setLinkedAssets(linked);
+
+        setLoading(false);
+    }, [projectId]);
+
+    useEffect(() => {
+        loadData();
+    }, [loadData, refreshKey]);
+
+    async function saveWhyBuilt() {
+        const supabase = getSupabaseBrowserClient();
+        await supabase
+            .from("projects")
+            .update({ why_built: whyText, updated_at: new Date().toISOString() })
+            .eq("id", projectId);
+        setProject((prev) => (prev ? { ...prev, why_built: whyText } : prev));
+        setEditingWhy(false);
+        toast.success("Updated!");
+    }
+
+    async function handleLinkAsset() {
+        if (!linkUrl.trim() || !linkDialog) return;
+
+        setLinkLoading(true);
+        const supabase = getSupabaseBrowserClient();
+        const {
+            data: { user },
+        } = await supabase.auth.getUser();
+
+        if (!user) return;
+
+        const eventType = `link_${linkDialog}` as string;
+
+        // Insert activity event
+        await supabase.from("activity_events").insert({
+            project_id: projectId,
+            user_id: user.id,
+            event_type: eventType,
+            description: `Linked ${linkDialog}: ${linkUrl}`,
+            metadata: { url: linkUrl },
+        });
+
+        // Award pineapples
+        const idempotencyKey = `${projectId}-${eventType}`;
+        await fetch("/api/rewards", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                userId: user.id,
+                projectId,
+                eventType,
+                idempotencyKey,
+            }),
+        });
+
+        trackEvent("link_added", { projectId, linkType: linkDialog });
+
+        setLinkedAssets((prev) => ({ ...prev, [eventType]: true }));
+        setLinkDialog(null);
+        setLinkUrl("");
+        setLinkLoading(false);
+        toast.success(`${linkDialog} linked! 🍍`);
+        loadData();
+    }
+
+    if (loading) {
+        return (
+            <div className="space-y-6 p-4">
+                <Skeleton className="h-20 w-full" />
+                <Skeleton className="h-16 w-full" />
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-32 w-full" />
+            </div>
+        );
+    }
+
+    return (
+        <ScrollArea className="h-full">
+            <div className="space-y-6 p-4">
+                {/* Valuation Range */}
+                <div>
+                    <div className="mb-2 flex items-center gap-2 text-sm font-medium">
+                        <DollarSign className="h-4 w-4" />
+                        Valuation Range
+                    </div>
+                    {project && (project.valuation_low > 0 || project.valuation_high > 0) ? (
+                        <div className="rounded-lg bg-green-50 p-3">
+                            <p className="text-lg font-bold text-green-700">
+                                ${project.valuation_low.toLocaleString()} – $
+                                {project.valuation_high.toLocaleString()}
+                            </p>
+                            <p className="text-xs text-green-600/70">
+                                Estimates based on logged activity only
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="rounded-lg bg-muted p-3">
+                            <p className="text-sm text-muted-foreground">Not yet estimated</p>
+                            <p className="text-xs text-muted-foreground/70">
+                                Log progress to generate a valuation
+                            </p>
+                        </div>
+                    )}
+                </div>
+
+                <Separator />
+
+                {/* Why I Built This */}
+                <div>
+                    <div className="mb-2 flex items-center gap-2 text-sm font-medium">
+                        <Heart className="h-4 w-4" />
+                        Why I Built This
+                    </div>
+                    {editingWhy ? (
+                        <div className="space-y-2">
+                            <Textarea
+                                value={whyText}
+                                onChange={(e) => setWhyText(e.target.value)}
+                                maxLength={1000}
+                                rows={4}
+                                placeholder="What problem are you solving?"
+                            />
+                            <div className="flex items-center justify-between">
+                                <span className="text-xs text-muted-foreground">
+                                    {whyText.length}/1000
+                                </span>
+                                <div className="flex gap-2">
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => setEditingWhy(false)}
+                                    >
+                                        Cancel
+                                    </Button>
+                                    <Button size="sm" onClick={saveWhyBuilt}>
+                                        Save
+                                    </Button>
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <div
+                            className="cursor-pointer rounded-lg border border-dashed p-3 text-sm transition-colors hover:bg-muted/50"
+                            onClick={() => setEditingWhy(true)}
+                        >
+                            {project?.why_built || (
+                                <span className="text-muted-foreground">
+                                    Click to add your &quot;why&quot; statement…
+                                </span>
+                            )}
+                        </div>
+                    )}
+                </div>
+
+                <Separator />
+
+                {/* Progress Score */}
+                <div>
+                    <div className="mb-2 flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-sm font-medium">
+                            <TrendingUp className="h-4 w-4" />
+                            Progress Score
+                        </div>
+                        <Badge
+                            variant="secondary"
+                            className={`text-xs ${(project?.progress_score || 0) <= 25
+                                    ? "bg-red-100 text-red-700"
+                                    : (project?.progress_score || 0) <= 50
+                                        ? "bg-yellow-100 text-yellow-700"
+                                        : (project?.progress_score || 0) <= 75
+                                            ? "bg-green-100 text-green-700"
+                                            : "bg-blue-100 text-blue-700"
+                                }`}
+                        >
+                            {getProgressLabel(project?.progress_score || 0)}
+                        </Badge>
+                    </div>
+                    <div className="space-y-1">
+                        <div className="flex justify-between text-xs text-muted-foreground">
+                            <span>{project?.progress_score || 0}%</span>
+                            <span>100%</span>
+                        </div>
+                        <div className="h-3 overflow-hidden rounded-full bg-secondary">
+                            <div
+                                className={`h-full rounded-full transition-all ${getProgressColor(
+                                    project?.progress_score || 0
+                                )}`}
+                                style={{
+                                    width: `${Math.min(project?.progress_score || 0, 100)}%`,
+                                }}
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                <Separator />
+
+                {/* Traction Signals */}
+                <div>
+                    <div className="mb-2 flex items-center gap-2 text-sm font-medium">
+                        <Activity className="h-4 w-4" />
+                        Traction Signals
+                    </div>
+                    {tractionSignals.length === 0 ? (
+                        <p className="text-xs text-muted-foreground">
+                            Start logging progress in the chat to see traction signals here.
+                        </p>
+                    ) : (
+                        <div className="space-y-2">
+                            {tractionSignals.slice(0, 5).map((signal) => (
+                                <div
+                                    key={signal.id}
+                                    className="flex items-start gap-2 rounded-md bg-muted/50 p-2"
+                                >
+                                    {eventIcon(signal.event_type)}
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-xs truncate">{signal.description}</p>
+                                        <p className="text-xs text-muted-foreground">
+                                            {timeAgo(signal.created_at)}
+                                        </p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                <Separator />
+
+                {/* Linked Assets */}
+                <div>
+                    <div className="mb-2 flex items-center gap-2 text-sm font-medium">
+                        <Link2 className="h-4 w-4" />
+                        Linked Assets
+                    </div>
+                    <div className="space-y-2">
+                        {(
+                            [
+                                {
+                                    key: "linkedin",
+                                    icon: <Linkedin className="h-4 w-4" />,
+                                    label: "LinkedIn",
+                                    reward: "5 🍍",
+                                },
+                                {
+                                    key: "github",
+                                    icon: <Github className="h-4 w-4" />,
+                                    label: "GitHub",
+                                    reward: "5 🍍",
+                                },
+                                {
+                                    key: "website",
+                                    icon: <Globe className="h-4 w-4" />,
+                                    label: "Website",
+                                    reward: "3 🍍",
+                                },
+                            ] as const
+                        ).map((asset) => (
+                            <div
+                                key={asset.key}
+                                className="flex items-center justify-between rounded-md border p-2"
+                            >
+                                <div className="flex items-center gap-2">
+                                    {asset.icon}
+                                    <span className="text-sm">{asset.label}</span>
+                                </div>
+                                {linkedAssets[`link_${asset.key}`] ? (
+                                    <Badge variant="secondary" className="gap-1 bg-green-100 text-green-700">
+                                        <Check className="h-3 w-3" />
+                                        Linked
+                                    </Badge>
+                                ) : (
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-7 text-xs"
+                                        onClick={() => setLinkDialog(asset.key)}
+                                    >
+                                        Link +{asset.reward}
+                                    </Button>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                <Separator />
+
+                {/* Mini Activity Timeline */}
+                <div>
+                    <div className="mb-2 flex items-center gap-2 text-sm font-medium">
+                        <Clock className="h-4 w-4" />
+                        Recent Activity
+                    </div>
+                    {events.length === 0 ? (
+                        <p className="text-xs text-muted-foreground">
+                            No activity yet. Start chatting!
+                        </p>
+                    ) : (
+                        <div className="space-y-2">
+                            {events.map((event) => (
+                                <div
+                                    key={event.id}
+                                    className="flex items-start gap-2 text-xs"
+                                >
+                                    <span className="mt-0.5 shrink-0">
+                                        {eventIcon(event.event_type)}
+                                    </span>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="truncate">
+                                            {event.description || event.event_type.replace(/_/g, " ")}
+                                        </p>
+                                    </div>
+                                    <span className="shrink-0 text-muted-foreground">
+                                        {timeAgo(event.created_at)}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Link Asset Dialog */}
+            <Dialog
+                open={!!linkDialog}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setLinkDialog(null);
+                        setLinkUrl("");
+                    }
+                }}
+            >
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Link {linkDialog}</DialogTitle>
+                        <DialogDescription>
+                            Paste your {linkDialog} URL to earn pineapples
+                        </DialogDescription>
+                    </DialogHeader>
+                    <Input
+                        value={linkUrl}
+                        onChange={(e) => setLinkUrl(e.target.value)}
+                        placeholder={`https://${linkDialog === "linkedin" ? "linkedin.com/in/your-profile" : linkDialog === "github" ? "github.com/your-username" : "your-site.com"}`}
+                    />
+                    <DialogFooter>
+                        <Button
+                            onClick={handleLinkAsset}
+                            disabled={!linkUrl.trim() || linkLoading}
+                        >
+                            {linkLoading ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : null}
+                            Link & Earn 🍍
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </ScrollArea>
+    );
+}

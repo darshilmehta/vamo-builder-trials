@@ -333,9 +333,8 @@ export function BusinessPanel({ projectId, refreshKey }: BusinessPanelProps) {
                     </div>
                     {project && (project.valuation_low > 0 || project.valuation_high > 0) ? (
                         <div className="rounded-lg bg-green-50 p-3">
-                            <p className="text-lg font-bold text-green-700">
-                                ${project.valuation_low.toLocaleString()} – $
-                                {project.valuation_high.toLocaleString()}
+                            <p className="text-lg font-bold text-green-700 break-words leading-tight">
+                                ${project.valuation_low.toLocaleString()} – ${project.valuation_high.toLocaleString()}
                             </p>
                             <p className="text-xs text-green-600/70">
                                 Estimates based on logged activity only

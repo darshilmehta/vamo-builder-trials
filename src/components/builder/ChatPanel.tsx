@@ -244,7 +244,7 @@ export function ChatPanel({ projectId, onMessageSent }: ChatPanelProps) {
                                     }`}
                             >
                                 <div
-                                    className={`rounded-lg px-3 py-2 text-sm ${msg.role === "user"
+                                    className={`rounded-lg px-3 py-2 text-sm break-words whitespace-pre-wrap ${msg.role === "user"
                                         ? "bg-primary text-primary-foreground"
                                         : "bg-muted"
                                         }`}

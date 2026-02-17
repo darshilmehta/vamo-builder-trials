@@ -336,13 +336,14 @@ function BuilderPageContent({
                             onChange={(e) => setProjectName(e.target.value)}
                             onBlur={updateProjectName}
                             onKeyDown={(e) => e.key === "Enter" && updateProjectName()}
-                            className="h-8 w-48"
+                            className="h-8 w-full max-w-[200px]"
                             autoFocus
                         />
                     ) : (
                         <h1
-                            className="cursor-pointer text-lg font-semibold hover:text-primary"
+                            className="cursor-pointer text-lg font-semibold hover:text-primary truncate max-w-[150px] sm:max-w-[300px]"
                             onClick={() => setEditingName(true)}
+                            title={project?.name}
                         >
                             {project?.name}
                         </h1>

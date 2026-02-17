@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { useRealtimeTable } from "@/lib/useRealtimeTable";
 import { trackEvent } from "@/lib/analytics";
 import { ChatPanel } from "@/components/builder/ChatPanel";
 import { UIPreview } from "@/components/builder/UIPreview";
@@ -92,6 +93,7 @@ function BuilderPageContent({
     const [chatCollapsed, setChatCollapsed] = useState(false);
     const [previewVisible, setPreviewVisible] = useState(true);
     const [businessCollapsed, setBusinessCollapsed] = useState(false);
+    const [userId, setUserId] = useState<string | null>(null);
 
     useEffect(() => {
         async function load() {
@@ -104,6 +106,7 @@ function BuilderPageContent({
                 router.push("/login");
                 return;
             }
+            setUserId(user.id);
 
             const { data: prof } = await supabase
                 .from("profiles")
@@ -133,6 +136,31 @@ function BuilderPageContent({
         }
         load();
     }, [params.projectId, router, refreshKey]);
+
+    // Realtime: profile balance changes
+    useRealtimeTable({
+        table: "profiles",
+        filter: userId ? `id=eq.${userId}` : undefined,
+        events: ["UPDATE"],
+        enabled: !!userId,
+        onEvent: (_eventType, payload) => {
+            const updated = payload.new as Profile;
+            setProfile(updated);
+        },
+    });
+
+    // Realtime: project changes
+    useRealtimeTable({
+        table: "projects",
+        filter: `id=eq.${params.projectId}`,
+        events: ["UPDATE"],
+        onEvent: (_eventType, payload) => {
+            const updated = payload.new as Project;
+            setProject(updated);
+            setProjectName(updated.name);
+            setProjectUrl(updated.url || "");
+        },
+    });
 
     function handleMessageSent() {
         setRefreshKey((k) => k + 1);

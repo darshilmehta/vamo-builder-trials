@@ -1,6 +1,10 @@
-import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { useRealtimeTable } from "@/lib/useRealtimeTable";
 import { Button } from "@/components/ui/button";
 import {
     Card,
@@ -10,6 +14,7 @@ import {
     CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
     Table,
     TableBody,
@@ -28,78 +33,141 @@ import {
 } from "lucide-react";
 import type { Profile, Project, Listing, Redemption } from "@/lib/types";
 
-export default async function AdminPage() {
-    const supabase = createSupabaseServerClient();
+export default function AdminPage() {
+    const router = useRouter();
+    const [loading, setLoading] = useState(true);
+    const [userCount, setUserCount] = useState(0);
+    const [projectCount, setProjectCount] = useState(0);
+    const [listingCount, setListingCount] = useState(0);
+    const [redemptionCount, setRedemptionCount] = useState(0);
+    const [recentUsers, setRecentUsers] = useState<Profile[]>([]);
+    const [recentProjects, setRecentProjects] = useState<Project[]>([]);
+    const [recentListings, setRecentListings] = useState<(Listing & { projects: { name: string } | null })[]>([]);
+    const [pendingRedemptions, setPendingRedemptions] = useState<(Redemption & { profiles: { email: string } | null })[]>([]);
 
-    const {
-        data: { user },
-    } = await supabase.auth.getUser();
+    const loadData = useCallback(async () => {
+        const supabase = getSupabaseBrowserClient();
 
-    if (!user) {
-        redirect("/login");
+        const {
+            data: { user },
+        } = await supabase.auth.getUser();
+
+        if (!user) {
+            router.push("/login");
+            return;
+        }
+
+        // Check admin
+        const { data: profile } = await supabase
+            .from("profiles")
+            .select("*")
+            .eq("id", user.id)
+            .single();
+
+        if (!profile || !(profile as Profile).is_admin) {
+            router.push("/projects");
+            return;
+        }
+
+        // Load stats
+        const { count: uc } = await supabase
+            .from("profiles")
+            .select("*", { count: "exact", head: true });
+        setUserCount(uc || 0);
+
+        const { count: pc } = await supabase
+            .from("projects")
+            .select("*", { count: "exact", head: true });
+        setProjectCount(pc || 0);
+
+        const { count: lc } = await supabase
+            .from("listings")
+            .select("*", { count: "exact", head: true });
+        setListingCount(lc || 0);
+
+        const { count: rc } = await supabase
+            .from("redemptions")
+            .select("*", { count: "exact", head: true });
+        setRedemptionCount(rc || 0);
+
+        // Load recent data
+        const { data: users } = await supabase
+            .from("profiles")
+            .select("*")
+            .order("created_at", { ascending: false })
+            .limit(20);
+        setRecentUsers((users || []) as Profile[]);
+
+        const { data: projects } = await supabase
+            .from("projects")
+            .select("*")
+            .order("created_at", { ascending: false })
+            .limit(20);
+        setRecentProjects((projects || []) as Project[]);
+
+        const { data: listings } = await supabase
+            .from("listings")
+            .select("*, projects(name)")
+            .order("created_at", { ascending: false })
+            .limit(20);
+        setRecentListings((listings || []) as (Listing & { projects: { name: string } | null })[]);
+
+        const { data: redemptions } = await supabase
+            .from("redemptions")
+            .select("*, profiles(email)")
+            .eq("status", "pending")
+            .order("created_at", { ascending: false });
+        setPendingRedemptions((redemptions || []) as (Redemption & { profiles: { email: string } | null })[]);
+
+        setLoading(false);
+    }, [router]);
+
+    useEffect(() => {
+        loadData();
+    }, [loadData]);
+
+    // Realtime: all admin-relevant tables
+    useRealtimeTable({
+        table: "profiles",
+        events: ["INSERT", "UPDATE"],
+        onEvent: () => loadData(),
+    });
+
+    useRealtimeTable({
+        table: "projects",
+        events: ["INSERT", "UPDATE", "DELETE"],
+        onEvent: () => loadData(),
+    });
+
+    useRealtimeTable({
+        table: "listings",
+        events: ["INSERT", "UPDATE", "DELETE"],
+        onEvent: () => loadData(),
+    });
+
+    useRealtimeTable({
+        table: "redemptions",
+        events: ["INSERT", "UPDATE"],
+        onEvent: () => loadData(),
+    });
+
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-gradient-to-br from-yellow-50/50 via-white to-green-50/50">
+                <div className="container mx-auto px-4 py-8">
+                    <Skeleton className="mb-6 h-5 w-32" />
+                    <Skeleton className="mb-8 h-10 w-48" />
+                    <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                        <Skeleton className="h-24 w-full" />
+                        <Skeleton className="h-24 w-full" />
+                        <Skeleton className="h-24 w-full" />
+                        <Skeleton className="h-24 w-full" />
+                    </div>
+                    <Skeleton className="h-64 w-full" />
+                </div>
+            </div>
+        );
     }
-
-    // Check admin
-    const { data: profile } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", user.id)
-        .single();
-
-    if (!profile || !(profile as Profile).is_admin) {
-        redirect("/projects");
-    }
-
-    // Load stats
-    const { count: userCount } = await supabase
-        .from("profiles")
-        .select("*", { count: "exact", head: true });
-
-    const { count: projectCount } = await supabase
-        .from("projects")
-        .select("*", { count: "exact", head: true });
-
-    const { count: listingCount } = await supabase
-        .from("listings")
-        .select("*", { count: "exact", head: true });
-
-    const { count: redemptionCount } = await supabase
-        .from("redemptions")
-        .select("*", { count: "exact", head: true });
-
-    // Load recent data
-    const { data: recentUsers } = await supabase
-        .from("profiles")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(20);
-
-    const { data: recentProjects } = await supabase
-        .from("projects")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(20);
-
-    const { data: recentListings } = await supabase
-        .from("listings")
-        .select("*, projects(name)")
-        .order("created_at", { ascending: false })
-        .limit(20);
-
-    const { data: pendingRedemptions } = await supabase
-        .from("redemptions")
-        .select("*, profiles(email)")
-        .eq("status", "pending")
-        .order("created_at", { ascending: false });
-
-    const typedUsers = (recentUsers || []) as Profile[];
-    const typedProjects = (recentProjects || []) as Project[];
-    const typedListings = (recentListings || []) as (Listing & {
-        projects: { name: string } | null;
-    })[];
-    const typedRedemptions = (pendingRedemptions || []) as (Redemption & {
-        profiles: { email: string } | null;
-    })[];
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-yellow-50/50 via-white to-green-50/50">
@@ -123,7 +191,7 @@ export default async function AdminPage() {
                             </div>
                             <div>
                                 <p className="text-sm text-muted-foreground">Total Users</p>
-                                <p className="text-2xl font-bold">{userCount || 0}</p>
+                                <p className="text-2xl font-bold">{userCount}</p>
                             </div>
                         </CardContent>
                     </Card>
@@ -134,7 +202,7 @@ export default async function AdminPage() {
                             </div>
                             <div>
                                 <p className="text-sm text-muted-foreground">Total Projects</p>
-                                <p className="text-2xl font-bold">{projectCount || 0}</p>
+                                <p className="text-2xl font-bold">{projectCount}</p>
                             </div>
                         </CardContent>
                     </Card>
@@ -145,7 +213,7 @@ export default async function AdminPage() {
                             </div>
                             <div>
                                 <p className="text-sm text-muted-foreground">Active Listings</p>
-                                <p className="text-2xl font-bold">{listingCount || 0}</p>
+                                <p className="text-2xl font-bold">{listingCount}</p>
                             </div>
                         </CardContent>
                     </Card>
@@ -158,7 +226,7 @@ export default async function AdminPage() {
                                 <p className="text-sm text-muted-foreground">
                                     Pending Redemptions
                                 </p>
-                                <p className="text-2xl font-bold">{redemptionCount || 0}</p>
+                                <p className="text-2xl font-bold">{redemptionCount}</p>
                             </div>
                         </CardContent>
                     </Card>
@@ -172,9 +240,9 @@ export default async function AdminPage() {
                         <TabsTrigger value="listings">Listings</TabsTrigger>
                         <TabsTrigger value="redemptions">
                             Redemptions{" "}
-                            {typedRedemptions.length > 0 && (
+                            {pendingRedemptions.length > 0 && (
                                 <Badge variant="destructive" className="ml-1">
-                                    {typedRedemptions.length}
+                                    {pendingRedemptions.length}
                                 </Badge>
                             )}
                         </TabsTrigger>
@@ -196,7 +264,7 @@ export default async function AdminPage() {
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {typedUsers.map((u) => (
+                                        {recentUsers.map((u) => (
                                             <TableRow key={u.id}>
                                                 <TableCell>{u.email}</TableCell>
                                                 <TableCell>{u.pineapple_balance} 🍍</TableCell>
@@ -237,7 +305,7 @@ export default async function AdminPage() {
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {typedProjects.map((p) => (
+                                        {recentProjects.map((p) => (
                                             <TableRow key={p.id}>
                                                 <TableCell className="font-medium">{p.name}</TableCell>
                                                 <TableCell>
@@ -268,7 +336,7 @@ export default async function AdminPage() {
                                 <CardTitle>Recent Listings</CardTitle>
                             </CardHeader>
                             <CardContent>
-                                {typedListings.length === 0 ? (
+                                {recentListings.length === 0 ? (
                                     <p className="py-8 text-center text-sm text-muted-foreground">
                                         No listings yet
                                     </p>
@@ -284,7 +352,7 @@ export default async function AdminPage() {
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            {typedListings.map((l) => (
+                                            {recentListings.map((l) => (
                                                 <TableRow key={l.id}>
                                                     <TableCell className="font-medium">
                                                         {l.title}
@@ -320,7 +388,7 @@ export default async function AdminPage() {
                                 </CardDescription>
                             </CardHeader>
                             <CardContent>
-                                {typedRedemptions.length === 0 ? (
+                                {pendingRedemptions.length === 0 ? (
                                     <p className="py-8 text-center text-sm text-muted-foreground">
                                         No pending redemptions
                                     </p>
@@ -336,7 +404,7 @@ export default async function AdminPage() {
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            {typedRedemptions.map((r) => (
+                                            {pendingRedemptions.map((r) => (
                                                 <TableRow key={r.id}>
                                                     <TableCell>
                                                         {r.profiles?.email || "Unknown"}

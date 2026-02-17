@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { useRealtimeTable } from "@/lib/useRealtimeTable";
 import { trackEvent } from "@/lib/analytics";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -168,6 +169,28 @@ export function BusinessPanel({ projectId, refreshKey }: BusinessPanelProps) {
     useEffect(() => {
         loadData();
     }, [loadData, refreshKey]);
+
+    // Realtime: project updates
+    useRealtimeTable({
+        table: "projects",
+        filter: `id=eq.${projectId}`,
+        events: ["UPDATE"],
+        onEvent: (_eventType, payload) => {
+            const updated = payload.new as Project;
+            setProject(updated);
+            setWhyText(updated.why_built || "");
+        },
+    });
+
+    // Realtime: activity events
+    useRealtimeTable({
+        table: "activity_events",
+        filter: `project_id=eq.${projectId}`,
+        events: ["INSERT"],
+        onEvent: () => {
+            loadData();
+        },
+    });
 
     async function saveWhyBuilt() {
         const supabase = getSupabaseBrowserClient();

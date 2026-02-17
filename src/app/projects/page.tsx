@@ -1,6 +1,10 @@
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
+import { useRouter } from "next/navigation";
+import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { useRealtimeTable } from "@/lib/useRealtimeTable";
 import { Button } from "@/components/ui/button";
 import {
     Card,
@@ -15,30 +19,68 @@ import { signOutAction } from "@/actions/auth";
 import { Plus, LogOut, Wallet, Shield } from "lucide-react";
 import type { Project, Profile } from "@/lib/types";
 
-export default async function ProjectsPage() {
-    const supabase = createSupabaseServerClient();
-    const {
-        data: { user },
-    } = await supabase.auth.getUser();
+export default function ProjectsPage() {
+    const router = useRouter();
+    const [profile, setProfile] = useState<Profile | null>(null);
+    const [projects, setProjects] = useState<Project[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [userId, setUserId] = useState<string | null>(null);
 
-    if (!user) {
-        redirect("/login");
-    }
+    const loadData = useCallback(async () => {
+        const supabase = getSupabaseBrowserClient();
+        const {
+            data: { user },
+        } = await supabase.auth.getUser();
 
-    const { data: profile } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", user.id)
-        .single();
+        if (!user) {
+            router.push("/login");
+            return;
+        }
+        setUserId(user.id);
 
-    const { data: projects } = await supabase
-        .from("projects")
-        .select("*")
-        .eq("owner_id", user.id)
-        .order("created_at", { ascending: false });
+        const { data: prof } = await supabase
+            .from("profiles")
+            .select("*")
+            .eq("id", user.id)
+            .single();
 
-    const typedProfile = profile as Profile | null;
-    const typedProjects = (projects as Project[]) || [];
+        const { data: projs } = await supabase
+            .from("projects")
+            .select("*")
+            .eq("owner_id", user.id)
+            .order("created_at", { ascending: false });
+
+        setProfile(prof as Profile | null);
+        setProjects((projs as Project[]) || []);
+        setLoading(false);
+    }, [router]);
+
+    useEffect(() => {
+        loadData();
+    }, [loadData]);
+
+    // Realtime: projects list updates
+    useRealtimeTable({
+        table: "projects",
+        filter: userId ? `owner_id=eq.${userId}` : undefined,
+        events: ["INSERT", "UPDATE", "DELETE"],
+        enabled: !!userId,
+        onEvent: () => {
+            loadData();
+        },
+    });
+
+    // Realtime: profile updates (balance)
+    useRealtimeTable({
+        table: "profiles",
+        filter: userId ? `id=eq.${userId}` : undefined,
+        events: ["UPDATE"],
+        enabled: !!userId,
+        onEvent: (_eventType, payload) => {
+            const updated = payload.new as Profile;
+            setProfile(updated);
+        },
+    });
 
     function getStatusColor(status: string) {
         switch (status) {
@@ -55,6 +97,30 @@ export default async function ProjectsPage() {
         }
     }
 
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-gradient-to-br from-yellow-50/50 via-white to-green-50/50">
+                <header className="border-b bg-white/80 backdrop-blur-sm">
+                    <div className="container mx-auto flex items-center justify-between px-4 py-4">
+                        <Skeleton className="h-8 w-24" />
+                        <Skeleton className="h-8 w-48" />
+                    </div>
+                </header>
+                <main className="container mx-auto px-4 py-8">
+                    <div className="mb-8 flex items-center justify-between">
+                        <Skeleton className="h-10 w-48" />
+                        <Skeleton className="h-10 w-32" />
+                    </div>
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        <Skeleton className="h-48 w-full" />
+                        <Skeleton className="h-48 w-full" />
+                        <Skeleton className="h-48 w-full" />
+                    </div>
+                </main>
+            </div>
+        );
+    }
+
     return (
         <div className="min-h-screen bg-gradient-to-br from-yellow-50/50 via-white to-green-50/50">
             {/* Header */}
@@ -69,10 +135,10 @@ export default async function ProjectsPage() {
                         <Link href="/wallet">
                             <Button variant="outline" size="sm" className="gap-2">
                                 <Wallet className="h-4 w-4" />
-                                {typedProfile?.pineapple_balance ?? 0} 🍍
+                                {profile?.pineapple_balance ?? 0} 🍍
                             </Button>
                         </Link>
-                        {typedProfile?.is_admin && (
+                        {profile?.is_admin && (
                             <Link href="/admin">
                                 <Button variant="outline" size="sm" className="gap-2">
                                     <Shield className="h-4 w-4" />
@@ -107,7 +173,7 @@ export default async function ProjectsPage() {
                     </Link>
                 </div>
 
-                {typedProjects.length === 0 ? (
+                {projects.length === 0 ? (
                     <Card className="py-16 text-center">
                         <CardContent>
                             <div className="mx-auto mb-4 text-6xl">🍍</div>
@@ -125,7 +191,7 @@ export default async function ProjectsPage() {
                     </Card>
                 ) : (
                     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                        {typedProjects.map((project) => (
+                        {projects.map((project) => (
                             <Link
                                 key={project.id}
                                 href={`/builder/${project.id}`}

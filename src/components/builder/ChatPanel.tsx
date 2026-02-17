@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { toast } from "sonner";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { useRealtimeTable } from "@/lib/useRealtimeTable";
 import { trackEvent } from "@/lib/analytics";
 import { useLLMLoading } from "@/components/LLMLoadingContext";
 import { Button } from "@/components/ui/button";
@@ -77,6 +78,21 @@ export function ChatPanel({ projectId, onMessageSent }: ChatPanelProps) {
         }
         loadMessages();
     }, [projectId]);
+
+    // Realtime: new messages in this project
+    useRealtimeTable({
+        table: "messages",
+        filter: `project_id=eq.${projectId}`,
+        events: ["INSERT"],
+        onEvent: (_eventType, payload) => {
+            const newMsg = payload.new as Message;
+            setMessages((prev) => {
+                // Avoid duplicates from optimistic updates
+                if (prev.some((m) => m.id === newMsg.id)) return prev;
+                return [...prev, newMsg];
+            });
+        },
+    });
 
     // Scroll to bottom on new messages
     useEffect(() => {

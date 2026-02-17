@@ -1,5 +1,9 @@
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { useRealtimeTable } from "@/lib/useRealtimeTable";
 import { Button } from "@/components/ui/button";
 import {
     Card,
@@ -9,21 +13,67 @@ import {
     CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Store, ArrowRight } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Store } from "lucide-react";
 import type { Listing } from "@/lib/types";
 
-export default async function MarketplacePage() {
-    const supabase = createSupabaseServerClient();
+type ListingWithProject = Listing & {
+    projects: { name: string; progress_score: number } | null;
+};
 
-    const { data: listings } = await supabase
-        .from("listings")
-        .select("*, projects(name, progress_score)")
-        .eq("status", "active")
-        .order("created_at", { ascending: false });
+export default function MarketplacePage() {
+    const [listings, setListings] = useState<ListingWithProject[]>([]);
+    const [loading, setLoading] = useState(true);
 
-    const typedListings = (listings || []) as (Listing & {
-        projects: { name: string; progress_score: number } | null;
-    })[];
+    const loadData = useCallback(async () => {
+        const supabase = getSupabaseBrowserClient();
+
+        const { data } = await supabase
+            .from("listings")
+            .select("*, projects(name, progress_score)")
+            .eq("status", "active")
+            .order("created_at", { ascending: false });
+
+        setListings((data || []) as ListingWithProject[]);
+        setLoading(false);
+    }, []);
+
+    useEffect(() => {
+        loadData();
+    }, [loadData]);
+
+    // Realtime: listings updates
+    useRealtimeTable({
+        table: "listings",
+        events: ["INSERT", "UPDATE", "DELETE"],
+        onEvent: () => {
+            loadData();
+        },
+    });
+
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-gradient-to-br from-yellow-50/50 via-white to-green-50/50">
+                <header className="border-b bg-white/80 backdrop-blur-sm">
+                    <div className="container mx-auto flex items-center justify-between px-4 py-4">
+                        <Skeleton className="h-8 w-32" />
+                        <Skeleton className="h-8 w-40" />
+                    </div>
+                </header>
+                <main className="container mx-auto px-4 py-8">
+                    <div className="mb-8 text-center">
+                        <Skeleton className="h-10 w-64 mx-auto mb-2" />
+                        <Skeleton className="h-5 w-80 mx-auto" />
+                    </div>
+                    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                        <Skeleton className="h-64 w-full" />
+                        <Skeleton className="h-64 w-full" />
+                        <Skeleton className="h-64 w-full" />
+                    </div>
+                </main>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-yellow-50/50 via-white to-green-50/50">
@@ -61,7 +111,7 @@ export default async function MarketplacePage() {
                     </p>
                 </div>
 
-                {typedListings.length === 0 ? (
+                {listings.length === 0 ? (
                     <Card className="mx-auto max-w-md py-16 text-center">
                         <CardContent>
                             <div className="mx-auto mb-4 rounded-full bg-muted p-6 w-fit">
@@ -78,7 +128,7 @@ export default async function MarketplacePage() {
                     </Card>
                 ) : (
                     <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                        {typedListings.map((listing) => (
+                        {listings.map((listing) => (
                             <Card
                                 key={listing.id}
                                 className="overflow-hidden transition-all hover:shadow-md"

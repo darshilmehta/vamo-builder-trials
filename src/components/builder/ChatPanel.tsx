@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { toast } from "sonner";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { useRealtimeTable } from "@/lib/useRealtimeTable";
@@ -61,6 +61,8 @@ export function ChatPanel({ projectId, onMessageSent }: ChatPanelProps) {
     const [loading, setLoading] = useState(false);
     const [initialLoading, setInitialLoading] = useState(true);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const sendingRef = useRef(false); // Track if we're in the middle of sending
+    const pendingIdsRef = useRef<Set<string>>(new Set()); // Track IDs we've already added optimistically
     const isBusy = loading || isLLMLoading;
 
     // Load messages
@@ -86,6 +88,11 @@ export function ChatPanel({ projectId, onMessageSent }: ChatPanelProps) {
         events: ["INSERT"],
         onEvent: (_eventType, payload) => {
             const newMsg = payload.new as Message;
+            // Skip realtime inserts while we're sending - we handle those manually
+            if (sendingRef.current) {
+                pendingIdsRef.current.add(newMsg.id);
+                return;
+            }
             setMessages((prev) => {
                 // Avoid duplicates from optimistic updates
                 if (prev.some((m) => m.id === newMsg.id)) return prev;
@@ -106,6 +113,8 @@ export function ChatPanel({ projectId, onMessageSent }: ChatPanelProps) {
         setInput("");
         setLoading(true);
         startLLMCall();
+        sendingRef.current = true;
+        pendingIdsRef.current.clear();
 
         // Optimistically add user message
         const tempUserMsg: Message = {
@@ -138,23 +147,41 @@ export function ChatPanel({ projectId, onMessageSent }: ChatPanelProps) {
                 throw new Error(data.error || "Failed to send message");
             }
 
-            // Replace temp message and add assistant message
+            const assistantMsg = data.message as Message;
+
+            // Replace temp message with the real user message from realtime,
+            // and add the assistant message. We use pendingIdsRef to find
+            // the real user message that arrived via realtime during our send.
             setMessages((prev) => {
+                // Remove the temp optimistic message
                 const filtered = prev.filter((m) => m.id !== tempUserMsg.id);
-                const assistantMsg = data.message as Message;
-                // Re-fetch all messages to get accurate state
-                return [
-                    ...filtered,
-                    {
-                        ...tempUserMsg,
-                        id: `user-${Date.now()}`,
-                        pineapples_earned: 0,
-                    },
-                    {
+
+                // Find the real user message ID from pending realtime events
+                // (it won't match assistant msg id)
+                const realUserMsgId = Array.from(pendingIdsRef.current).find(
+                    (id) => id !== assistantMsg?.id
+                );
+
+                // Build the final user message - use the real DB ID if available
+                const finalUserMsg: Message = {
+                    ...tempUserMsg,
+                    id: realUserMsgId || `user-${Date.now()}`,
+                    pineapples_earned: 0,
+                };
+
+                // Check we're not adding duplicates
+                const hasUser = filtered.some((m) => m.id === finalUserMsg.id);
+                const hasAssistant = filtered.some((m) => m.id === assistantMsg?.id);
+
+                const result = [...filtered];
+                if (!hasUser) result.push(finalUserMsg);
+                if (assistantMsg && !hasAssistant) {
+                    result.push({
                         ...assistantMsg,
                         pineapples_earned: data.pineapplesEarned || 0,
-                    },
-                ];
+                    });
+                }
+                return result;
             });
 
             if (data.pineapplesEarned > 0) {
@@ -177,6 +204,8 @@ export function ChatPanel({ projectId, onMessageSent }: ChatPanelProps) {
                 prev.filter((m) => m.id !== tempUserMsg.id)
             );
         } finally {
+            sendingRef.current = false;
+            pendingIdsRef.current.clear();
             setLoading(false);
             endLLMCall();
             setSelectedTag(null);
@@ -296,19 +325,19 @@ export function ChatPanel({ projectId, onMessageSent }: ChatPanelProps) {
             <div className="border-t bg-white/50 p-4 backdrop-blur-sm">
                 <div className="flex flex-col gap-3">
                     {/* Tag selector */}
-                    <div className="flex flex-wrap gap-1.5 overflow-x-auto pb-2">
+                    <div className="flex gap-1 overflow-x-auto scrollbar-hide pb-1" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                         {TAG_OPTIONS.map((t) => (
                             <button
                                 key={t.value}
                                 onClick={() =>
                                     setSelectedTag(selectedTag === t.value ? null : t.value)
                                 }
-                                className={`group inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium whitespace-nowrap transition-all ${selectedTag === t.value
+                                className={`group inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap transition-all ${selectedTag === t.value
                                     ? t.color + " ring-2 ring-primary ring-offset-1 shadow-sm"
                                     : "bg-white text-slate-600 border border-slate-200 hover:border-slate-300 hover:bg-slate-50 shadow-sm"
                                     }`}
                             >
-                                <Tag className={`h-3 w-3 ${selectedTag === t.value ? "opacity-100" : "opacity-50 group-hover:opacity-75"}`} />
+                                <Tag className={`h-2.5 w-2.5 ${selectedTag === t.value ? "opacity-100" : "opacity-50 group-hover:opacity-75"}`} />
                                 {t.label}
                             </button>
                         ))}

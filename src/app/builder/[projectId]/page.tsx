@@ -395,7 +395,7 @@ function BuilderPageContent({
                         minSize={5}
                         collapsible
                         collapsedSize={0}
-                        onResize={(size) => {
+                        onResize={(size: { asPercentage: number; inPixels: number }) => {
                             const isCollapsed = size.asPercentage === 0;
                             if (chatCollapsed !== isCollapsed) setChatCollapsed(isCollapsed);
                         }}
@@ -461,7 +461,7 @@ function BuilderPageContent({
                         minSize={5}
                         collapsible
                         collapsedSize={0}
-                        onResize={(size) => {
+                        onResize={(size: { asPercentage: number; inPixels: number }) => {
                             const isCollapsed = size.asPercentage === 0;
                             if (businessCollapsed !== isCollapsed) setBusinessCollapsed(isCollapsed);
                         }}
@@ -688,8 +688,11 @@ function BuilderPageContent({
                         className={`h-10 w-10 rounded-full transition-all duration-300 ${!chatCollapsed ? "bg-primary text-primary-foreground shadow-md scale-100" : "text-muted-foreground hover:bg-muted hover:text-foreground scale-90"}`}
                         onClick={() => {
                             if (chatCollapsed) {
-                                const size = previewVisible ? 25 : 40;
-                                chatPanelRef.current?.resize(size);
+                                chatPanelRef.current?.expand();
+                                // Defer resize to after expand animation
+                                setTimeout(() => {
+                                    chatPanelRef.current?.resize(previewVisible ? 25 : 40);
+                                }, 50);
                             } else {
                                 chatPanelRef.current?.collapse();
                             }
@@ -715,8 +718,11 @@ function BuilderPageContent({
                         className={`h-10 w-10 rounded-full transition-all duration-300 ${!businessCollapsed ? "bg-primary text-primary-foreground shadow-md scale-100" : "text-muted-foreground hover:bg-muted hover:text-foreground scale-90"}`}
                         onClick={() => {
                             if (businessCollapsed) {
-                                const size = previewVisible ? 25 : 60;
-                                businessPanelRef.current?.resize(size);
+                                businessPanelRef.current?.expand();
+                                // Defer resize to after expand animation
+                                setTimeout(() => {
+                                    businessPanelRef.current?.resize(previewVisible ? 25 : 60);
+                                }, 50);
                             } else {
                                 businessPanelRef.current?.collapse();
                             }

@@ -44,6 +44,7 @@ import {
     PanelLeftOpen,
     PanelRightClose,
     PanelRightOpen,
+    Layout,
 } from "lucide-react";
 import type { Project, Profile } from "@/lib/types";
 
@@ -336,13 +337,14 @@ function BuilderPageContent({
                             onChange={(e) => setProjectName(e.target.value)}
                             onBlur={updateProjectName}
                             onKeyDown={(e) => e.key === "Enter" && updateProjectName()}
-                            className="h-8 w-48"
+                            className="h-8 w-full max-w-[200px]"
                             autoFocus
                         />
                     ) : (
                         <h1
-                            className="cursor-pointer text-lg font-semibold hover:text-primary"
+                            className="cursor-pointer text-lg font-semibold hover:text-primary truncate max-w-[150px] sm:max-w-[300px]"
                             onClick={() => setEditingName(true)}
+                            title={project?.name}
                         >
                             {project?.name}
                         </h1>
@@ -389,42 +391,26 @@ function BuilderPageContent({
                     {/* Chat Panel */}
                     <ResizablePanel
                         panelRef={chatPanelRef}
-                        defaultSize={previewVisible ? "22%" : "40%"}
-                        minSize="15%"
-                        maxSize={previewVisible ? "40%" : "60%"}
+                        defaultSize={previewVisible ? 25 : 40}
+                        minSize={5}
                         collapsible
-                        collapsedSize="0%"
-                        onResize={(size: any) => setChatCollapsed(String(size) === "0%")}
-                        className="flex flex-col"
+                        collapsedSize={0}
+                        onResize={(size: { asPercentage: number; inPixels: number }) => {
+                            const isCollapsed = size.asPercentage === 0;
+                            if (chatCollapsed !== isCollapsed) setChatCollapsed(isCollapsed);
+                        }}
+                        className={`flex flex-col transition-all duration-300 ease-in-out`}
                     >
                         <div className="flex h-full flex-col">
-                            <div className="flex items-center justify-between border-b px-3 py-1.5">
+                            <div className="flex items-center justify-between border-b px-3 py-1.5 bg-background">
                                 <span className="text-xs font-medium text-muted-foreground flex items-center gap-1">
                                     <MessageSquare className="h-3 w-3" /> Chat
                                 </span>
                                 <div className="flex items-center gap-1">
-                                    {!previewVisible && (
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-6 w-6"
-                                            onClick={() => setPreviewVisible(true)}
-                                            title="Show Preview"
-                                        >
-                                            <Monitor className="h-3.5 w-3.5" />
-                                        </Button>
-                                    )}
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-6 w-6"
-                                        onClick={() => chatPanelRef.current?.collapse()}
-                                    >
-                                        <PanelLeftClose className="h-3.5 w-3.5" />
-                                    </Button>
+                                    {/* Toolbar controlled by floating dock */}
                                 </div>
                             </div>
-                            <div className="flex-1 overflow-hidden">
+                            <div className="flex-1 overflow-hidden bg-slate-50/50">
                                 <ChatPanel
                                     projectId={params.projectId}
                                     onMessageSent={handleMessageSent}
@@ -433,56 +419,28 @@ function BuilderPageContent({
                         </div>
                     </ResizablePanel>
 
-                    <ResizableHandle withHandle />
+                    <ResizableHandle withHandle className="bg-border/50 hover:bg-primary/20 transition-colors w-1 data-[resize-handle-state=hover]:w-1.5 data-[resize-handle-state=drag]:w-1.5 z-10" />
 
                     {/* Preview Panel (center, conditionally rendered) */}
                     {previewVisible && (
                         <>
                             <ResizablePanel
-                                defaultSize="56%"
-                                minSize="20%"
+                                defaultSize={50}
+                                minSize={20}
                                 className="flex flex-col"
                             >
                                 <div className="flex h-full flex-col">
-                                    <div className="flex items-center justify-between border-b px-3 py-1.5">
+                                    <div className="flex items-center justify-between border-b px-3 py-1.5 bg-background">
                                         <div className="flex items-center gap-2">
-                                            {chatCollapsed && (
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-6 w-6"
-                                                    onClick={() => chatPanelRef.current?.expand()}
-                                                >
-                                                    <PanelLeftOpen className="h-3.5 w-3.5" />
-                                                </Button>
-                                            )}
                                             <span className="text-xs font-medium text-muted-foreground flex items-center gap-1">
                                                 <Monitor className="h-3 w-3" /> Preview
                                             </span>
                                         </div>
                                         <div className="flex items-center gap-1">
-                                            {businessCollapsed && (
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-6 w-6"
-                                                    onClick={() => businessPanelRef.current?.expand()}
-                                                >
-                                                    <PanelRightOpen className="h-3.5 w-3.5" />
-                                                </Button>
-                                            )}
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-6 w-6"
-                                                onClick={() => setPreviewVisible(false)}
-                                                title="Hide Preview"
-                                            >
-                                                <PanelLeftClose className="h-3.5 w-3.5" />
-                                            </Button>
+                                            {/* Toolbar controlled by floating dock */}
                                         </div>
                                     </div>
-                                    <div className="flex-1 overflow-hidden">
+                                    <div className="flex-1 overflow-hidden bg-background">
                                         <UIPreview
                                             url={project?.url || null}
                                             screenshotUrl={project?.screenshot_url || null}
@@ -492,49 +450,33 @@ function BuilderPageContent({
                                 </div>
                             </ResizablePanel>
 
-                            <ResizableHandle withHandle />
+                            <ResizableHandle withHandle className="bg-border/50 hover:bg-primary/20 transition-colors w-1 data-[resize-handle-state=hover]:w-1.5 data-[resize-handle-state=drag]:w-1.5 z-10" />
                         </>
                     )}
 
                     {/* Business Panel */}
                     <ResizablePanel
                         panelRef={businessPanelRef}
-                        defaultSize={previewVisible ? "22%" : "60%"}
-                        minSize="15%"
-                        maxSize={previewVisible ? "40%" : "85%"}
+                        defaultSize={previewVisible ? 25 : 60}
+                        minSize={5}
                         collapsible
-                        collapsedSize="0%"
-                        onResize={(size: any) => setBusinessCollapsed(String(size) === "0%")}
-                        className="flex flex-col"
+                        collapsedSize={0}
+                        onResize={(size: { asPercentage: number; inPixels: number }) => {
+                            const isCollapsed = size.asPercentage === 0;
+                            if (businessCollapsed !== isCollapsed) setBusinessCollapsed(isCollapsed);
+                        }}
+                        className={`flex flex-col transition-all duration-300 ease-in-out`}
                     >
                         <div className="flex h-full flex-col">
-                            <div className="flex items-center justify-between border-b px-3 py-1.5">
+                            <div className="flex items-center justify-between border-b px-3 py-1.5 bg-background">
                                 <div className="flex items-center gap-2">
-                                    {!previewVisible && (
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-6 w-6"
-                                            onClick={() => setPreviewVisible(true)}
-                                            title="Show Preview"
-                                        >
-                                            <Monitor className="h-3.5 w-3.5" />
-                                        </Button>
-                                    )}
                                     <span className="text-xs font-medium text-muted-foreground flex items-center gap-1">
                                         <BarChart3 className="h-3 w-3" /> Business
                                     </span>
                                 </div>
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-6 w-6"
-                                    onClick={() => businessPanelRef.current?.collapse()}
-                                >
-                                    <PanelRightClose className="h-3.5 w-3.5" />
-                                </Button>
+                                {/* Toolbar controlled by floating dock */}
                             </div>
-                            <div className="flex-1 overflow-hidden">
+                            <div className="flex-1 overflow-hidden bg-slate-50/50">
                                 <BusinessPanel
                                     projectId={params.projectId}
                                     refreshKey={refreshKey}
@@ -736,6 +678,61 @@ function BuilderPageContent({
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            {/* Floating Dock Panel Toggler (Always Visible Pill) */}
+            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 hidden xl:flex z-50">
+                <div className="flex h-14 items-center gap-2 rounded-full border bg-white/95 px-3 py-1 shadow-xl backdrop-blur ring-1 ring-slate-900/5">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className={`h-10 w-10 rounded-full transition-all duration-300 ${!chatCollapsed ? "bg-primary text-primary-foreground shadow-md scale-100" : "text-muted-foreground hover:bg-muted hover:text-foreground scale-90"}`}
+                        onClick={() => {
+                            if (chatCollapsed) {
+                                chatPanelRef.current?.expand();
+                                // Defer resize to after expand animation
+                                setTimeout(() => {
+                                    chatPanelRef.current?.resize(previewVisible ? 25 : 40);
+                                }, 50);
+                            } else {
+                                chatPanelRef.current?.collapse();
+                            }
+                        }}
+                        title={chatCollapsed ? "Show Chat" : "Hide Chat"}
+                    >
+                        <MessageSquare className="h-5 w-5" />
+                    </Button>
+                    <div className="h-5 w-px bg-slate-200" />
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className={`h-10 w-10 rounded-full transition-all duration-300 ${previewVisible ? "bg-primary text-primary-foreground shadow-md scale-100" : "text-muted-foreground hover:bg-muted hover:text-foreground scale-90"}`}
+                        onClick={() => setPreviewVisible(!previewVisible)}
+                        title={previewVisible ? "Hide Preview" : "Show Preview"}
+                    >
+                        <Monitor className="h-5 w-5" />
+                    </Button>
+                    <div className="h-5 w-px bg-slate-200" />
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className={`h-10 w-10 rounded-full transition-all duration-300 ${!businessCollapsed ? "bg-primary text-primary-foreground shadow-md scale-100" : "text-muted-foreground hover:bg-muted hover:text-foreground scale-90"}`}
+                        onClick={() => {
+                            if (businessCollapsed) {
+                                businessPanelRef.current?.expand();
+                                // Defer resize to after expand animation
+                                setTimeout(() => {
+                                    businessPanelRef.current?.resize(previewVisible ? 25 : 60);
+                                }, 50);
+                            } else {
+                                businessPanelRef.current?.collapse();
+                            }
+                        }}
+                        title={businessCollapsed ? "Show Business" : "Hide Business"}
+                    >
+                        <BarChart3 className="h-5 w-5" />
+                    </Button>
+                </div>
+            </div>
         </div>
     );
 }

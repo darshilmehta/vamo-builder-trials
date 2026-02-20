@@ -153,7 +153,7 @@ export default function AdminPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-yellow-50/50 via-white to-green-50/50">
+            <div className="min-h-screen bg-background">
                 <div className="container mx-auto px-4 py-8">
                     <Skeleton className="mb-6 h-5 w-32" />
                     <Skeleton className="mb-8 h-10 w-48" />
@@ -186,8 +186,8 @@ export default function AdminPage() {
                 <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     <Card>
                         <CardContent className="flex items-center gap-4 p-6">
-                            <div className="rounded-lg bg-blue-100 p-3">
-                                <Users className="h-6 w-6 text-blue-600" />
+                            <div className="rounded-lg bg-primary/10 p-3">
+                                <Users className="h-6 w-6 text-primary" />
                             </div>
                             <div>
                                 <p className="text-sm text-muted-foreground">Total Users</p>
@@ -197,8 +197,8 @@ export default function AdminPage() {
                     </Card>
                     <Card>
                         <CardContent className="flex items-center gap-4 p-6">
-                            <div className="rounded-lg bg-green-100 p-3">
-                                <FolderOpen className="h-6 w-6 text-green-600" />
+                            <div className="rounded-lg bg-accent/10 p-3">
+                                <FolderOpen className="h-6 w-6 text-accent" />
                             </div>
                             <div>
                                 <p className="text-sm text-muted-foreground">Total Projects</p>

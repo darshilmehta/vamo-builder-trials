@@ -11,6 +11,7 @@ import { ChatPanel } from "@/components/builder/ChatPanel";
 import { UIPreview } from "@/components/builder/UIPreview";
 import { BusinessPanel } from "@/components/builder/BusinessPanel";
 import { LLMLoadingProvider, useLLMLoading } from "@/components/LLMLoadingContext";
+import { Header } from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -32,11 +33,15 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+    Tooltip,
+    TooltipTrigger,
+    TooltipContent,
+} from "@/components/ui/tooltip";
+import {
     Wallet,
     ShoppingCart,
     Sparkles,
     Loader2,
-    ArrowLeft,
     MessageSquare,
     Monitor,
     BarChart3,
@@ -321,50 +326,16 @@ function BuilderPageContent({
         );
     }
 
-    return (
-        <div className="flex h-screen flex-col overflow-hidden">
-            {/* Header */}
-            <header className="flex items-center justify-between border-b bg-white px-4 py-2">
-                <div className="flex items-center gap-3">
-                    <Link href="/projects">
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <ArrowLeft className="h-4 w-4" />
-                        </Button>
-                    </Link>
-                    {editingName ? (
-                        <Input
-                            value={projectName}
-                            onChange={(e) => setProjectName(e.target.value)}
-                            onBlur={updateProjectName}
-                            onKeyDown={(e) => e.key === "Enter" && updateProjectName()}
-                            className="h-8 w-full max-w-[200px]"
-                            autoFocus
-                        />
-                    ) : (
-                        <h1
-                            className="cursor-pointer text-lg font-semibold hover:text-primary truncate max-w-[150px] sm:max-w-[300px]"
-                            onClick={() => setEditingName(true)}
-                            title={project?.name}
-                        >
-                            {project?.name}
-                        </h1>
-                    )}
-                </div>
-                <div className="flex items-center gap-2">
-                    <Link href="/wallet">
-                        <Badge
-                            variant="outline"
-                            className="cursor-pointer gap-1 px-3 py-1 text-sm hover:bg-muted"
-                        >
-                            🍍 {profile?.pineapple_balance ?? 0}
-                        </Badge>
-                    </Link>
-                    {(project?.progress_score || 0) >= 20 && (
+    const builderActions = (
+        <div className="flex items-center gap-2">
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <span tabIndex={0}>
                         <Button
                             variant="outline"
                             size="sm"
                             className="gap-1"
-                            disabled={isLLMLoading}
+                            disabled={isLLMLoading || (project?.progress_score || 0) < 20}
                             onClick={() => {
                                 setListingTitle(project?.name || "");
                                 setListingPriceLow(String(project?.valuation_low || ""));
@@ -375,15 +346,58 @@ function BuilderPageContent({
                             <ShoppingCart className="h-3.5 w-3.5" />
                             List for Sale
                         </Button>
-                    )}
-                    {(project?.progress_score || 0) >= 10 && (
-                        <Button size="sm" className="gap-1" onClick={handleGetOffer} disabled={isLLMLoading}>
+                    </span>
+                </TooltipTrigger>
+                {(project?.progress_score || 0) < 20 && (
+                    <TooltipContent>Reach 20% progress to list</TooltipContent>
+                )}
+            </Tooltip>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <span tabIndex={0}>
+                        <Button
+                            size="sm"
+                            className="gap-1 gradient-orange text-white border-0"
+                            onClick={handleGetOffer}
+                            disabled={isLLMLoading || (project?.progress_score || 0) < 10}
+                        >
                             <Sparkles className="h-3.5 w-3.5" />
                             Get Vamo Offer
                         </Button>
-                    )}
-                </div>
-            </header>
+                    </span>
+                </TooltipTrigger>
+                {(project?.progress_score || 0) < 10 && (
+                    <TooltipContent>Reach 10% progress for offers</TooltipContent>
+                )}
+            </Tooltip>
+        </div>
+    );
+
+    return (
+        <div className="flex h-screen flex-col overflow-hidden">
+            {/* Header using shared component */}
+            <Header variant="builder" profile={profile} actions={builderActions} />
+            {/* Inline project name editor (overlaid or below header) */}
+            <div className="flex items-center gap-2 border-b bg-background px-4 py-1.5">
+                {editingName ? (
+                    <Input
+                        value={projectName}
+                        onChange={(e) => setProjectName(e.target.value)}
+                        onBlur={updateProjectName}
+                        onKeyDown={(e) => e.key === "Enter" && updateProjectName()}
+                        className="h-7 w-full max-w-[250px] text-sm"
+                        autoFocus
+                    />
+                ) : (
+                    <h2
+                        className="cursor-pointer text-sm font-medium hover:text-primary truncate max-w-[250px] sm:max-w-[400px]"
+                        onClick={() => setEditingName(true)}
+                        title={project?.name}
+                    >
+                        📁 {project?.name}
+                    </h2>
+                )}
+            </div>
 
             {/* Desktop Layout: resizable panels */}
             <div className="hidden flex-1 overflow-hidden xl:flex">
@@ -410,7 +424,7 @@ function BuilderPageContent({
                                     {/* Toolbar controlled by floating dock */}
                                 </div>
                             </div>
-                            <div className="flex-1 overflow-hidden bg-slate-50/50">
+                            <div className="flex-1 overflow-hidden bg-muted/30">
                                 <ChatPanel
                                     projectId={params.projectId}
                                     onMessageSent={handleMessageSent}
@@ -681,7 +695,7 @@ function BuilderPageContent({
 
             {/* Floating Dock Panel Toggler (Always Visible Pill) */}
             <div className="fixed bottom-6 left-1/2 -translate-x-1/2 hidden xl:flex z-50">
-                <div className="flex h-14 items-center gap-2 rounded-full border bg-white/95 px-3 py-1 shadow-xl backdrop-blur ring-1 ring-slate-900/5">
+                <div className="flex h-14 items-center gap-2 rounded-full border bg-card/95 px-3 py-1 shadow-xl backdrop-blur ring-1 ring-border">
                     <Button
                         variant="ghost"
                         size="icon"

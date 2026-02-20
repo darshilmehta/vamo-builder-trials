@@ -6,79 +6,62 @@ import { usePathname } from "next/navigation";
 export function NavigationLoader() {
     const pathname = usePathname();
     const [isNavigating, setIsNavigating] = useState(false);
+    const [isComplete, setIsComplete] = useState(false);
     const prevPathname = useRef(pathname);
     const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+    // Start loading on anchor click
     useEffect(() => {
-        // When pathname changes, navigation is complete — hide the loader
-        if (prevPathname.current !== pathname) {
-            prevPathname.current = pathname;
-            setIsNavigating(false);
-            if (timeoutRef.current) {
-                clearTimeout(timeoutRef.current);
-                timeoutRef.current = null;
-            }
-        }
-    }, [pathname]);
-
-    useEffect(() => {
-        // Intercept all clicks on anchor elements and buttons inside links
         function handleClick(e: MouseEvent) {
-            const target = e.target as HTMLElement;
-
-            // Walk up the DOM to find an anchor tag
-            const anchor = target.closest("a");
+            const anchor = (e.target as HTMLElement).closest("a");
             if (!anchor) return;
-
             const href = anchor.getAttribute("href");
-            if (!href) return;
-
-            // Skip external links, hash links, and same-page links
-            if (
-                href.startsWith("http") ||
-                href.startsWith("#") ||
-                href.startsWith("mailto:") ||
-                anchor.target === "_blank"
-            ) {
-                return;
-            }
-
-            // Skip if it's the same path
+            if (!href || href.startsWith("#") || href.startsWith("http") || href.startsWith("mailto:")) return;
             if (href === pathname) return;
-
-            // Show the navigation loader
             setIsNavigating(true);
-
-            // Safety timeout: hide loader after 8s if navigation doesn't complete
-            if (timeoutRef.current) clearTimeout(timeoutRef.current);
-            timeoutRef.current = setTimeout(() => {
-                setIsNavigating(false);
-            }, 8000);
+            setIsComplete(false);
         }
 
         document.addEventListener("click", handleClick, true);
-        return () => {
-            document.removeEventListener("click", handleClick, true);
-            if (timeoutRef.current) clearTimeout(timeoutRef.current);
-        };
+        return () => document.removeEventListener("click", handleClick, true);
     }, [pathname]);
+
+    // Complete loading when pathname changes
+    useEffect(() => {
+        if (prevPathname.current !== pathname) {
+            prevPathname.current = pathname;
+            if (isNavigating) {
+                setIsComplete(true);
+                if (timeoutRef.current) clearTimeout(timeoutRef.current);
+                timeoutRef.current = setTimeout(() => {
+                    setIsNavigating(false);
+                    setIsComplete(false);
+                }, 400);
+            }
+        }
+    }, [pathname, isNavigating]);
+
+    // Safety timeout — clear after 5s max
+    useEffect(() => {
+        if (isNavigating && !isComplete) {
+            const safetyTimeout = setTimeout(() => {
+                setIsComplete(true);
+                setTimeout(() => {
+                    setIsNavigating(false);
+                    setIsComplete(false);
+                }, 400);
+            }, 5000);
+            return () => clearTimeout(safetyTimeout);
+        }
+    }, [isNavigating, isComplete]);
 
     if (!isNavigating) return null;
 
     return (
-        <div className="navigation-loader-overlay">
-            <div className="navigation-loader-content">
-                <div className="navigation-loader-spinner">
-                    <div className="navigation-loader-pineapple">🍍</div>
-                    <div className="navigation-loader-ring" />
-                </div>
-                <div className="navigation-loader-dots">
-                    <span className="navigation-loader-dot" />
-                    <span className="navigation-loader-dot" />
-                    <span className="navigation-loader-dot" />
-                </div>
-                <p className="navigation-loader-text">Loading...</p>
-            </div>
-        </div>
+        <div
+            className={`navigation-progress-bar ${isComplete ? "complete" : ""}`}
+            role="progressbar"
+            aria-label="Page loading"
+        />
     );
 }

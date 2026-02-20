@@ -51,7 +51,7 @@ export default function WalletPage() {
     const [redeemLoading, setRedeemLoading] = useState(false);
     const [page, setPage] = useState(0);
     const [userId, setUserId] = useState<string | null>(null);
-    const PAGE_SIZE = 20;
+    const PAGE_SIZE = 10;
 
     const loadData = useCallback(async () => {
         const supabase = getSupabaseBrowserClient();
@@ -204,7 +204,7 @@ export default function WalletPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-yellow-50/50 via-white to-green-50/50">
+        <div className="min-h-screen bg-background">
             <div className="container mx-auto max-w-4xl px-4 py-8">
                 <Link
                     href="/projects"
@@ -215,7 +215,7 @@ export default function WalletPage() {
                 </Link>
 
                 {/* Balance Card */}
-                <Card className="mb-8 bg-gradient-to-r from-yellow-50 to-green-50">
+                <Card className="mb-8 gradient-orange-subtle border-primary/10">
                     <CardContent className="flex items-center justify-between p-8">
                         <div>
                             <p className="text-sm text-muted-foreground mb-1">
@@ -228,7 +228,7 @@ export default function WalletPage() {
                         </div>
                         <Button
                             size="lg"
-                            className="gap-2"
+                            className="gap-2 gradient-orange text-white border-0"
                             disabled={
                                 (profile?.pineapple_balance || 0) < MIN_REDEMPTION_AMOUNT
                             }
@@ -254,53 +254,54 @@ export default function WalletPage() {
                         <CardTitle>Reward History</CardTitle>
                         <CardDescription>All pineapples earned and redeemed</CardDescription>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="p-0">
                         {rewards.length === 0 ? (
-                            <p className="py-8 text-center text-sm text-muted-foreground">
+                            <p className="py-6 text-center text-sm text-muted-foreground">
                                 No rewards yet. Start building to earn pineapples! 🍍
                             </p>
                         ) : (
                             <>
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Date</TableHead>
-                                            <TableHead>Event</TableHead>
-                                            <TableHead className="text-right">Amount</TableHead>
-                                            <TableHead className="text-right">Balance</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {rewards.map((entry) => (
-                                            <TableRow key={entry.id}>
-                                                <TableCell className="text-sm">
-                                                    {new Date(entry.created_at).toLocaleDateString()}
-                                                </TableCell>
-                                                <TableCell>
-                                                    <span className="text-sm">
-                                                        {entry.event_type.replace(/_/g, " ")}
-                                                    </span>
-                                                </TableCell>
-                                                <TableCell
-                                                    className={`text-right font-medium ${entry.reward_amount >= 0
-                                                        ? "text-green-600"
-                                                        : "text-red-600"
-                                                        }`}
-                                                >
-                                                    {entry.reward_amount >= 0 ? "+" : ""}
-                                                    {entry.reward_amount} 🍍
-                                                </TableCell>
-                                                <TableCell className="text-right text-sm">
-                                                    {entry.balance_after}
-                                                </TableCell>
+                                <div className="max-h-[360px] overflow-auto">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow className="text-xs">
+                                                <TableHead className="py-2 px-3 text-xs">Date</TableHead>
+                                                <TableHead className="py-2 px-3 text-xs">Event</TableHead>
+                                                <TableHead className="py-2 px-3 text-xs text-right">Amount</TableHead>
+                                                <TableHead className="py-2 px-3 text-xs text-right">Balance</TableHead>
                                             </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                                <div className="mt-4 flex justify-center gap-2">
+                                        </TableHeader>
+                                        <TableBody>
+                                            {rewards.map((entry) => (
+                                                <TableRow key={entry.id}>
+                                                    <TableCell className="py-1.5 px-3 text-xs text-muted-foreground">
+                                                        {new Date(entry.created_at).toLocaleDateString()}
+                                                    </TableCell>
+                                                    <TableCell className="py-1.5 px-3 text-xs capitalize">
+                                                        {entry.event_type.replace(/_/g, " ")}
+                                                    </TableCell>
+                                                    <TableCell
+                                                        className={`py-1.5 px-3 text-xs text-right font-medium ${entry.reward_amount >= 0
+                                                            ? "text-green-600"
+                                                            : "text-red-600"
+                                                            }`}
+                                                    >
+                                                        {entry.reward_amount >= 0 ? "+" : ""}
+                                                        {entry.reward_amount} 🍍
+                                                    </TableCell>
+                                                    <TableCell className="py-1.5 px-3 text-xs text-right">
+                                                        {entry.balance_after}
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                                <div className="flex justify-center gap-2 border-t p-3">
                                     <Button
                                         variant="outline"
                                         size="sm"
+                                        className="h-7 text-xs"
                                         disabled={page === 0}
                                         onClick={() => setPage((p) => p - 1)}
                                     >
@@ -309,6 +310,7 @@ export default function WalletPage() {
                                     <Button
                                         variant="outline"
                                         size="sm"
+                                        className="h-7 text-xs"
                                         disabled={rewards.length < PAGE_SIZE}
                                         onClick={() => setPage((p) => p + 1)}
                                     >

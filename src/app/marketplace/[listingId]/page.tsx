@@ -1,5 +1,4 @@
 import Link from "next/link";
-import Image from "next/image";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -42,10 +41,10 @@ export default async function ListingPage({ params }: { params: { listingId: str
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-yellow-50/50 via-white to-green-50/50">
+        <div className="min-h-screen bg-background">
             {/* Header */}
-            <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-10">
-                <div className="container mx-auto flex items-center justify-between px-4 py-4">
+            <header className="border-b bg-background/80 backdrop-blur-md sticky top-0 z-10">
+                <div className="mx-auto max-w-7xl flex items-center justify-between px-4 py-3">
                     <div className="flex items-center gap-4">
                         <Link href="/marketplace">
                             <Button variant="ghost" size="icon">
@@ -53,14 +52,8 @@ export default async function ListingPage({ params }: { params: { listingId: str
                             </Button>
                         </Link>
                         <div className="flex items-center gap-2">
-                            <Image
-                                src="/vamo_logo.png"
-                                alt="Vamo Logo"
-                                width={32}
-                                height={32}
-                                className="w-8 h-8"
-                            />
-                            <span className="text-xl font-bold hidden sm:inline">Vamo Marketplace</span>
+                            <span className="text-xl">🍍</span>
+                            <span className="text-lg font-bold text-gradient-orange hidden sm:inline">Vamo Marketplace</span>
                         </div>
                     </div>
                     <div className="flex items-center gap-3">
@@ -70,7 +63,7 @@ export default async function ListingPage({ params }: { params: { listingId: str
                             </Button>
                         </Link>
                         <Link href="/signup">
-                            <Button size="sm">Get Started</Button>
+                            <Button size="sm" className="gradient-orange text-white border-0">Get Started</Button>
                         </Link>
                     </div>
                 </div>

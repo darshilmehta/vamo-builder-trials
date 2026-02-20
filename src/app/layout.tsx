@@ -2,28 +2,40 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { NavigationLoader } from "@/components/NavigationLoader";
+import { ThemeProvider } from "@/components/ThemeProvider";
+import { I18nProvider } from "@/components/I18nProvider";
+import { FontSizeProvider } from "@/components/FontSizeProvider";
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Vamo — Build & Track Your Startup",
-  description:
-    "Vamo is a builder where non-technical founders iterate on their startup UI and business progress in parallel. Earn pineapples, track traction, get instant offers.",
+    title: "Vamo — Build, Track & Earn for Your Startup",
+    description:
+        "Vamo is where non-technical founders build their startup, track real traction, earn pineapple rewards, and get instant AI-generated valuations.",
 };
 
 export default function RootLayout({
-  children,
+    children,
 }: Readonly<{
-  children: React.ReactNode;
+    children: React.ReactNode;
 }>) {
-  return (
-    <html lang="en">
-      <body className={inter.className}>
-        <NavigationLoader />
-        {children}
-        <Toaster richColors position="top-right" />
-      </body>
-    </html>
-  );
+    return (
+        <html lang="en" suppressHydrationWarning>
+            <body className={inter.className}>
+                <ThemeProvider>
+                    <I18nProvider>
+                        <FontSizeProvider>
+                            <TooltipProvider delayDuration={300}>
+                                <NavigationLoader />
+                                {children}
+                                <Toaster richColors position="top-right" />
+                            </TooltipProvider>
+                        </FontSizeProvider>
+                    </I18nProvider>
+                </ThemeProvider>
+            </body>
+        </html>
+    );
 }

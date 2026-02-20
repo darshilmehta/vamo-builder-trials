@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { useRealtimeTable } from "@/lib/useRealtimeTable";
+import { Header } from "@/components/Header";
+import { useI18n } from "@/components/I18nProvider";
 import { Button } from "@/components/ui/button";
 import {
     Card,
@@ -16,8 +17,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { signOutAction } from "@/actions/auth";
-import { Plus, LogOut, Wallet, Shield } from "lucide-react";
+import { Plus } from "lucide-react";
 import type { Project, Profile } from "@/lib/types";
 
 export default function ProjectsPage() {
@@ -83,16 +83,18 @@ export default function ProjectsPage() {
         },
     });
 
+    const { t } = useI18n();
+
     function getStatusColor(status: string) {
         switch (status) {
             case "active":
-                return "bg-green-100 text-green-700";
+                return "bg-primary/10 text-primary";
             case "listed":
-                return "bg-blue-100 text-blue-700";
+                return "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300";
             case "sold":
-                return "bg-purple-100 text-purple-700";
+                return "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300";
             case "archived":
-                return "bg-gray-100 text-gray-700";
+                return "bg-muted text-muted-foreground";
             default:
                 return "";
         }
@@ -100,22 +102,17 @@ export default function ProjectsPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-yellow-50/50 via-white to-green-50/50">
-                <header className="border-b bg-white/80 backdrop-blur-sm">
-                    <div className="container mx-auto flex items-center justify-between px-4 py-4">
-                        <Skeleton className="h-8 w-24" />
-                        <Skeleton className="h-8 w-48" />
-                    </div>
-                </header>
-                <main className="container mx-auto px-4 py-8">
+            <div className="min-h-screen bg-background">
+                <Header variant="authenticated" profile={profile} />
+                <main className="mx-auto max-w-7xl px-4 py-8">
                     <div className="mb-8 flex items-center justify-between">
                         <Skeleton className="h-10 w-48" />
                         <Skeleton className="h-10 w-32" />
                     </div>
                     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                        <Skeleton className="h-48 w-full" />
-                        <Skeleton className="h-48 w-full" />
-                        <Skeleton className="h-48 w-full" />
+                        <Skeleton className="h-48 w-full rounded-2xl" />
+                        <Skeleton className="h-48 w-full rounded-2xl" />
+                        <Skeleton className="h-48 w-full rounded-2xl" />
                     </div>
                 </main>
             </div>
@@ -123,76 +120,38 @@ export default function ProjectsPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-yellow-50/50 via-white to-green-50/50">
-            {/* Header */}
-            <header className="border-b bg-white/80 backdrop-blur-sm">
-                <div className="container mx-auto flex items-center justify-between px-4 py-4">
-                    <div className="flex items-center gap-3">
-                        <Link href="/projects" className="text-xl font-bold flex items-center gap-2">
-                            <Image
-                                src="/vamo_logo.png"
-                                alt="Vamo Logo"
-                                width={32}
-                                height={32}
-                                className="w-8 h-8"
-                            />
-                            Vamo
-                        </Link>
-                    </div>
-                    <div className="flex items-center gap-3">
-                        <Link href="/wallet">
-                            <Button variant="outline" size="sm" className="gap-2">
-                                <Wallet className="h-4 w-4" />
-                                {profile?.pineapple_balance ?? 0} 🍍
-                            </Button>
-                        </Link>
-                        {profile?.is_admin && (
-                            <Link href="/admin">
-                                <Button variant="outline" size="sm" className="gap-2">
-                                    <Shield className="h-4 w-4" />
-                                    Admin
-                                </Button>
-                            </Link>
-                        )}
-                        <form action={signOutAction}>
-                            <Button variant="ghost" size="sm" className="gap-2">
-                                <LogOut className="h-4 w-4" />
-                                Sign Out
-                            </Button>
-                        </form>
-                    </div>
-                </div>
-            </header>
+        <div className="min-h-screen bg-background">
+            <Header variant="authenticated" profile={profile} />
 
             {/* Content */}
-            <main className="container mx-auto px-4 py-8">
+            <main className="mx-auto max-w-7xl px-4 py-8">
                 <div className="mb-8 flex items-center justify-between">
                     <div>
-                        <h1 className="text-3xl font-bold">Your Projects</h1>
+                        <h1 className="text-3xl font-bold">{t("projects.title")}</h1>
                         <p className="text-muted-foreground">
-                            Build, track progress, and earn pineapples
+                            {t("projects.subtitle")}
                         </p>
                     </div>
                     <Link href="/projects/new">
-                        <Button className="gap-2">
+                        <Button className="gap-2 gradient-orange text-white border-0">
                             <Plus className="h-4 w-4" />
-                            New Project
+                            {t("projects.newProject")}
                         </Button>
                     </Link>
                 </div>
 
                 {projects.length === 0 ? (
-                    <Card className="py-16 text-center">
+                    <Card className="py-16 text-center border-dashed">
                         <CardContent>
-                            <div className="mx-auto mb-4 text-6xl">🍍</div>
-                            <h2 className="mb-2 text-xl font-semibold">No projects yet</h2>
+                            <div className="mx-auto mb-4 text-6xl animate-float">🍍</div>
+                            <h2 className="mb-2 text-xl font-semibold">{t("projects.noProjects")}</h2>
                             <p className="mb-6 text-muted-foreground">
-                                Create your first project to start earning pineapples
+                                {t("projects.noProjectsDesc")}
                             </p>
                             <Link href="/projects/new">
-                                <Button className="gap-2">
+                                <Button className="gap-2 gradient-orange text-white border-0">
                                     <Plus className="h-4 w-4" />
-                                    Create Project
+                                    {t("projects.createProject")}
                                 </Button>
                             </Link>
                         </CardContent>
@@ -205,7 +164,7 @@ export default function ProjectsPage() {
                                 href={`/builder/${project.id}`}
                                 className="group"
                             >
-                                <Card className="h-full transition-all hover:shadow-md hover:border-primary/20">
+                                <Card className="h-full transition-all hover:shadow-lg hover:border-primary/30 hover:-translate-y-0.5">
                                     <CardHeader>
                                         <div className="flex items-start justify-between">
                                             <CardTitle className="text-lg group-hover:text-primary transition-colors">
@@ -226,8 +185,8 @@ export default function ProjectsPage() {
                                     </CardHeader>
                                     <CardContent>
                                         <div className="flex items-center justify-between text-sm">
-                                            <span className="text-muted-foreground">Progress</span>
-                                            <span className="font-medium">
+                                            <span className="text-muted-foreground">{t("projects.progress")}</span>
+                                            <span className="font-medium text-primary">
                                                 {project.progress_score}%
                                             </span>
                                         </div>
@@ -241,7 +200,7 @@ export default function ProjectsPage() {
                                         </div>
                                         {project.valuation_low > 0 && (
                                             <p className="mt-3 text-sm text-muted-foreground">
-                                                Valuation: ${project.valuation_low.toLocaleString()} – $
+                                                {t("projects.valuation")}: ${project.valuation_low.toLocaleString()} – $
                                                 {project.valuation_high.toLocaleString()}
                                             </p>
                                         )}

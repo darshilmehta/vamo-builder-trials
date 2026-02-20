@@ -53,8 +53,14 @@ export async function middleware(request: NextRequest) {
 
     const pathname = request.nextUrl.pathname;
 
-    // Allow public routes
-    if (PUBLIC_ROUTES.some((route) => pathname === route)) {
+    // Allow public routes (exact match or prefix for marketplace)
+    const isPublic =
+        pathname === "/" ||
+        pathname === "/login" ||
+        pathname === "/signup" ||
+        pathname.startsWith("/marketplace");
+
+    if (isPublic) {
         // If logged in and trying to access login/signup, redirect to /projects
         if (user && (pathname === "/login" || pathname === "/signup")) {
             return NextResponse.redirect(new URL("/projects", request.url));

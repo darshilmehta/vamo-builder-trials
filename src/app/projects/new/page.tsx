@@ -101,7 +101,7 @@ export default function NewProjectPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-yellow-50/50 via-white to-green-50/50 p-4">
+        <div className="min-h-screen bg-background p-4">
             <div className="container mx-auto max-w-2xl py-8">
                 <Link
                     href="/projects"
@@ -111,7 +111,7 @@ export default function NewProjectPage() {
                     Back to projects
                 </Link>
 
-                <Card>
+                <Card className="border-primary/10 shadow-lg">
                     <CardHeader>
                         <CardTitle className="text-2xl">Create a New Project</CardTitle>
                         <CardDescription>
@@ -174,7 +174,7 @@ export default function NewProjectPage() {
                                 />
                             </div>
 
-                            <Button type="submit" className="w-full" disabled={loading}>
+                            <Button type="submit" className="w-full gradient-orange text-white border-0" disabled={loading}>
                                 {loading ? (
                                     <>
                                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />

@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { useRealtimeTable } from "@/lib/useRealtimeTable";
+import { Header } from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import {
     Card,
@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Store, ArrowRight } from "lucide-react";
+import { Store } from "lucide-react";
 import type { Listing } from "@/lib/types";
 
 type ListingWithProject = Listing & {
@@ -54,22 +54,17 @@ export default function MarketplacePage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-yellow-50/50 via-white to-green-50/50">
-                <header className="border-b bg-white/80 backdrop-blur-sm">
-                    <div className="container mx-auto flex items-center justify-between px-4 py-4">
-                        <Skeleton className="h-8 w-32" />
-                        <Skeleton className="h-8 w-40" />
-                    </div>
-                </header>
-                <main className="container mx-auto px-4 py-8">
+            <div className="min-h-screen bg-background">
+                <Header variant="public" />
+                <main className="mx-auto max-w-7xl px-4 py-8">
                     <div className="mb-8 text-center">
                         <Skeleton className="h-10 w-64 mx-auto mb-2" />
                         <Skeleton className="h-5 w-80 mx-auto" />
                     </div>
                     <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                        <Skeleton className="h-64 w-full" />
-                        <Skeleton className="h-64 w-full" />
-                        <Skeleton className="h-64 w-full" />
+                        <Skeleton className="h-64 w-full rounded-2xl" />
+                        <Skeleton className="h-64 w-full rounded-2xl" />
+                        <Skeleton className="h-64 w-full rounded-2xl" />
                     </div>
                 </main>
             </div>
@@ -77,40 +72,11 @@ export default function MarketplacePage() {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-yellow-50/50 via-white to-green-50/50">
-            {/* Header */}
-            <header className="border-b bg-white/80 backdrop-blur-sm">
-                <div className="container mx-auto flex items-center justify-between px-4 py-4">
-                    <div className="flex items-center gap-2">
-                        <Link href="/" className="flex items-center gap-2">
-                            <Image
-                                src="/vamo_logo.png"
-                                alt="Vamo Logo"
-                                width={32}
-                                height={32}
-                                className="w-8 h-8"
-                            />
-                            <span className="text-xl font-bold">Vamo</span>
-                        </Link>
-                        <Badge variant="secondary" className="ml-2">
-                            Marketplace
-                        </Badge>
-                    </div>
-                    <div className="flex items-center gap-3">
-                        <Link href="/login">
-                            <Button variant="ghost" size="sm">
-                                Sign In
-                            </Button>
-                        </Link>
-                        <Link href="/signup">
-                            <Button size="sm">Get Started</Button>
-                        </Link>
-                    </div>
-                </div>
-            </header>
+        <div className="min-h-screen bg-background">
+            <Header variant="public" />
 
             {/* Content */}
-            <main className="container mx-auto px-4 py-8">
+            <main className="mx-auto max-w-7xl px-4 py-8">
                 <div className="mb-8 text-center">
                     <h1 className="text-3xl font-bold">Project Marketplace</h1>
                     <p className="mt-2 text-muted-foreground">
@@ -119,17 +85,17 @@ export default function MarketplacePage() {
                 </div>
 
                 {listings.length === 0 ? (
-                    <Card className="mx-auto max-w-md py-16 text-center">
+                    <Card className="mx-auto max-w-md py-16 text-center border-dashed">
                         <CardContent>
-                            <div className="mx-auto mb-4 rounded-full bg-muted p-6 w-fit">
-                                <Store className="h-8 w-8 text-muted-foreground" />
+                            <div className="mx-auto mb-4 rounded-full bg-primary/10 p-6 w-fit">
+                                <Store className="h-8 w-8 text-primary" />
                             </div>
                             <h2 className="mb-2 text-xl font-semibold">No listings yet</h2>
                             <p className="mb-6 text-muted-foreground">
                                 Be the first to list your project on the marketplace!
                             </p>
                             <Link href="/signup">
-                                <Button>Get Started</Button>
+                                <Button className="gradient-orange text-white border-0">Get Started</Button>
                             </Link>
                         </CardContent>
                     </Card>
@@ -138,7 +104,7 @@ export default function MarketplacePage() {
                         {listings.map((listing) => (
                             <Link key={listing.id} href={`/marketplace/${listing.id}`}>
                                 <Card
-                                    className="overflow-hidden transition-all hover:shadow-md"
+                                    className="overflow-hidden transition-all hover:shadow-lg hover:-translate-y-0.5"
                                 >
                                     {listing.screenshots && (listing.screenshots as string[]).length > 0 && (
                                         // eslint-disable-next-line @next/next/no-img-element
@@ -161,7 +127,7 @@ export default function MarketplacePage() {
                                             <div>
                                                 {listing.asking_price_low != null &&
                                                     listing.asking_price_high != null ? (
-                                                    <p className="font-semibold text-green-700">
+                                                    <p className="font-semibold text-primary">
                                                         ${listing.asking_price_low.toLocaleString()} – $
                                                         {listing.asking_price_high.toLocaleString()}
                                                     </p>

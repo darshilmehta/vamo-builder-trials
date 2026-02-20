@@ -41,7 +41,7 @@ export async function DELETE(
         const idsToDelete = [messageId];
         const assistantMsgId = await getAssistantMsgIdFromRollback(supabase, projectId, user.id, messageId, userMsg.created_at);
         if (assistantMsgId) {
-             idsToDelete.push(assistantMsgId);
+            idsToDelete.push(assistantMsgId);
         }
 
         const { error: err3 } = await supabase.from("messages").delete().in("id", idsToDelete);
@@ -60,7 +60,7 @@ async function getAssistantMsgIdFromRollback(supabase: any, projectId: string, u
         .select("*")
         .eq("project_id", projectId)
         .eq("user_id", userId);
-    
+
     const targetEvents = activityEvents?.filter(
         (e: any) => e.metadata?.rollback?.user_message_id === messageId
     ) || [];
@@ -80,7 +80,7 @@ async function getAssistantMsgIdFromRollback(supabase: any, projectId: string, u
         .order("created_at", { ascending: true })
         .limit(1)
         .single();
-        
+
     return nextMsg?.id || null;
 }
 
@@ -90,7 +90,7 @@ async function rollbackPromptEffects(supabase: any, user: any, projectId: string
         .select("*")
         .eq("project_id", projectId)
         .eq("user_id", user.id);
-    
+
     const targetEvents = activityEvents?.filter(
         (e: any) => e.metadata?.rollback?.user_message_id === messageId
     ) || [];
@@ -103,11 +103,11 @@ async function rollbackPromptEffects(supabase: any, user: any, projectId: string
     let assistantMsgId = null;
 
     if (promptEvent) {
-         const rb = promptEvent.metadata?.rollback;
-         progressDelta = rb?.progress_delta || 0;
-         valLowDelta = rb?.valuation_low_delta || 0;
-         valHighDelta = rb?.valuation_high_delta || 0;
-         assistantMsgId = rb?.assistant_message_id;
+        const rb = promptEvent.metadata?.rollback;
+        progressDelta = rb?.progress_delta || 0;
+        valLowDelta = rb?.valuation_low_delta || 0;
+        valHighDelta = rb?.valuation_high_delta || 0;
+        assistantMsgId = rb?.assistant_message_id;
     }
 
     if (!isEdit) {
@@ -129,11 +129,11 @@ async function rollbackPromptEffects(supabase: any, user: any, projectId: string
     if (progressDelta > 0 || valLowDelta > 0 || valHighDelta > 0) {
         const { data: project } = await supabase.from("projects").select("progress_score, valuation_low, valuation_high").eq("id", projectId).single();
         if (project) {
-             await supabase.from("projects").update({
-                 progress_score: Math.max(0, (project.progress_score || 0) - progressDelta),
-                 valuation_low: Math.max(0, (project.valuation_low || 0) - valLowDelta),
-                 valuation_high: Math.max(0, (project.valuation_high || 0) - valHighDelta),
-             }).eq("id", projectId);
+            await supabase.from("projects").update({
+                progress_score: Math.max(0, (project.progress_score || 0) - progressDelta),
+                valuation_low: Math.max(0, (project.valuation_low || 0) - valLowDelta),
+                valuation_high: Math.max(0, (project.valuation_high || 0) - valHighDelta),
+            }).eq("id", projectId);
         }
     }
 
@@ -143,8 +143,8 @@ async function rollbackPromptEffects(supabase: any, user: any, projectId: string
     }
 
     if (targetEvents.length > 0) {
-         const { error: err2 } = await supabase.from("activity_events").delete().in("id", targetEvents.map((e: any) => e.id));
-         if (err2) throw err2;
+        const { error: err2 } = await supabase.from("activity_events").delete().in("id", targetEvents.map((e: any) => e.id));
+        if (err2) throw err2;
     }
 }
 
@@ -229,7 +229,7 @@ If insufficient data, say so. Progress delta max is 5 per prompt. Be realistic. 
                 ];
 
                 const completion = await openai.chat.completions.create({
-                    model: "gpt-4o-mini",
+                    model: "gpt-5-nano-2025-08-07",
                     temperature: 0.5,
                     response_format: { type: "json_object" },
                     messages: chatMessages,
@@ -254,11 +254,11 @@ If insufficient data, say so. Progress delta max is 5 per prompt. Be realistic. 
 
         // 6. Update assistant message
         if (assistantMsgId) {
-             await supabase.from("messages").update({
-                 content: aiResponse.reply,
-                 extracted_intent: aiResponse.intent,
-                 tag: tag || aiResponse.intent || null
-             }).eq("id", assistantMsgId);
+            await supabase.from("messages").update({
+                content: aiResponse.reply,
+                extracted_intent: aiResponse.intent,
+                tag: tag || aiResponse.intent || null
+            }).eq("id", assistantMsgId);
         }
 
         // 7. Re-apply progress score and activity events (identical logic to POST)
@@ -295,7 +295,7 @@ If insufficient data, say so. Progress delta max is 5 per prompt. Be realistic. 
             user_id: user.id,
             event_type: "prompt",
             description: message.substring(0, 200),
-            metadata: { 
+            metadata: {
                 intent: aiResponse.intent,
                 rollback: {
                     user_message_id: messageId,
@@ -319,7 +319,7 @@ If insufficient data, say so. Progress delta max is 5 per prompt. Be realistic. 
         }
 
         // 9. Re-award pineapples (Skipped during edits to prevent farming)
-        
+
         return NextResponse.json({ success: true, message: { id: messageId, content: message, tag }, pineapplesEarned: 0 });
     } catch (error: any) {
         console.error("PUT prompt error:", error);

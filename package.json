@@ -46,7 +46,8 @@
     "recharts": "^3.7.0",
     "sonner": "^1.7.0",
     "tailwind-merge": "^2.6.0",
-    "zod": "^3.25.76"
+    "zod": "^3.25.76",
+    "ts-node": "^10.9.2"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.9.1",

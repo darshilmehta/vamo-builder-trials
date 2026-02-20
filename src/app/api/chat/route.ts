@@ -191,42 +191,43 @@ If insufficient data, say so. Progress delta max is 5 per prompt. Be realistic. 
                         .select()
                         .single();
 
-                    // Insert activity event for the prompt
-                    await supabase.from("activity_events").insert({
-                        project_id: projectId,
-                        user_id: user.id,
-                        event_type: "prompt",
-                        description: message.substring(0, 200),
-                        metadata: { intent: aiResponse.intent },
-                    });
+        // Insert activity event for the prompt
+        await supabase.from("activity_events").insert({
+            project_id: projectId,
+            user_id: user.id,
+            event_type: "prompt",
+            description: message.substring(0, 200),
+            metadata: { intent: aiResponse.intent },
+        });
 
-                    // Update progress score if applicable
-                    const progressDelta = Math.min(
-                        aiResponse.business_update?.progress_delta || 0,
-                        5
-                    );
-                    if (progressDelta > 0) {
-                        const newScore = Math.min(
-                            (project.progress_score || 0) + progressDelta,
-                            100
-                        );
-                        await supabase
-                            .from("projects")
-                            .update({
-                                progress_score: newScore,
-                                updated_at: new Date().toISOString(),
-                            })
-                            .eq("id", projectId);
+        // Update progress score if applicable
+        const progressDelta = Math.min(
+            aiResponse.business_update?.progress_delta || 0,
+            5
+        );
+        if (progressDelta > 0 && project) {
+            const newScore = Math.min(
+                (project.progress_score || 0) + progressDelta,
+                100
+            );
+            await supabase
+                .from("projects")
+                .update({
+                    progress_score: newScore,
+                    updated_at: new Date().toISOString(),
+                })
+                .eq("id", projectId);
 
-                        if (aiResponse.business_update?.valuation_adjustment === "up") {
-                            const newLow = Math.max(project.valuation_low || 0, newScore * 50);
-                            const newHigh = Math.max(project.valuation_high || 0, newScore * 100);
-                            await supabase
-                                .from("projects")
-                                .update({ valuation_low: newLow, valuation_high: newHigh })
-                                .eq("id", projectId);
-                        }
-                    }
+            // Update valuation based on progress
+            if (aiResponse.business_update?.valuation_adjustment === "up") {
+                const newLow = Math.max(project.valuation_low || 0, newScore * 50);
+                const newHigh = Math.max(project.valuation_high || 0, newScore * 100);
+                await supabase
+                    .from("projects")
+                    .update({ valuation_low: newLow, valuation_high: newHigh })
+                    .eq("id", projectId);
+            }
+        }
 
                     if (aiResponse.business_update?.traction_signal) {
                         const eventType =
@@ -238,13 +239,13 @@ If insufficient data, say so. Progress delta max is 5 per prompt. Be realistic. 
                                         ? "revenue_logged"
                                         : "update";
 
-                        await supabase.from("activity_events").insert({
-                            project_id: projectId,
-                            user_id: user.id,
-                            event_type: eventType,
-                            description: aiResponse.business_update.traction_signal,
-                        });
-                    }
+            await supabase.from("activity_events").insert({
+                project_id: projectId,
+                user_id: user.id,
+                event_type: eventType,
+                description: aiResponse.business_update.traction_signal,
+            });
+        }
 
                     // Award pineapples
                     let pineapplesEarned = 0;

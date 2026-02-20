@@ -12,7 +12,13 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Send, Bot, User, Tag } from "lucide-react";
+import { Send, Bot, User, Tag, MoreVertical, Pencil, Trash2 } from "lucide-react";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import type { Message, MessageTag } from "@/lib/types";
 
 interface ChatPanelProps {
@@ -61,6 +67,10 @@ export function ChatPanel({ projectId, onMessageSent }: ChatPanelProps) {
     const [loading, setLoading] = useState(false); // true = waiting for first token
     const [streaming, setStreaming] = useState(false); // true = tokens flowing
     const [initialLoading, setInitialLoading] = useState(true);
+    const [deletingId, setDeletingId] = useState<string | null>(null);
+    const [editingId, setEditingId] = useState<string | null>(null);
+    const [editInput, setEditInput] = useState("");
+    const [editLoading, setEditLoading] = useState(false);
     const streamingAssistantIdRef = useRef<string | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const sendingRef = useRef(false);
@@ -83,12 +93,24 @@ export function ChatPanel({ projectId, onMessageSent }: ChatPanelProps) {
         loadMessages();
     }, [projectId]);
 
-    // Realtime: new messages in this project
+    // Realtime: new messages/deletes in this project
     useRealtimeTable({
         table: "messages",
         filter: `project_id=eq.${projectId}`,
-        events: ["INSERT"],
+        events: ["INSERT", "UPDATE", "DELETE"],
         onEvent: (_eventType, payload) => {
+            if (_eventType === "DELETE") {
+                const oldMsg = payload.old as { id: string };
+                setMessages((prev) => prev.filter((m) => m.id !== oldMsg.id));
+                return;
+            }
+
+            if (_eventType === "UPDATE") {
+                const updatedMsg = payload.new as Message;
+                setMessages((prev) => prev.map((m) => m.id === updatedMsg.id ? updatedMsg : m));
+                return;
+            }
+
             const newMsg = payload.new as Message;
             // Skip realtime inserts while we're sending - we handle those manually
             if (sendingRef.current) {
@@ -102,6 +124,68 @@ export function ChatPanel({ projectId, onMessageSent }: ChatPanelProps) {
             });
         },
     });
+
+    async function handleDeleteMessage(msgId: string) {
+        if (isBusy) return;
+        setDeletingId(msgId);
+        try {
+            const res = await fetch(`/api/chat/${msgId}`, { method: "DELETE" });
+            if (!res.ok) throw new Error("Failed to delete message");
+            onMessageSent(); // Trigger project refresh
+            
+            // Optimistically remove from UI in case realtime is slow/disconnected
+            setMessages((prev) => prev.filter((m) => m.id !== msgId));
+            
+            // Also try to remove the assistant message if we can't rely on realtime
+            // We'll just fetch fresh messages after a short delay since it's safer
+            setTimeout(() => {
+                async function loadFresh() {
+                    const supabase = getSupabaseBrowserClient();
+                    const { data } = await supabase
+                        .from("messages")
+                        .select("*")
+                        .eq("project_id", projectId)
+                        .order("created_at", { ascending: true });
+                    if (data) setMessages(data as Message[]);
+                }
+                loadFresh();
+            }, 1000);
+
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : "Failed to delete message");
+        } finally {
+            setDeletingId(null);
+        }
+    }
+
+    async function handleEditMessage(msg: Message) {
+        if (isBusy) return;
+        setEditingId(msg.id);
+        setEditInput(msg.content);
+        if (msg.tag) setSelectedTag(msg.tag);
+    }
+
+    async function handleSaveEdit(msgId: string) {
+        if (!editInput.trim() || isBusy || editLoading) return;
+        setEditLoading(true);
+        startLLMCall();
+        try {
+            const res = await fetch(`/api/chat/${msgId}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ message: editInput.trim(), tag: selectedTag }),
+            });
+            if (!res.ok) throw new Error("Failed to save edit");
+            onMessageSent(); // Trigger project refresh
+            setEditingId(null);
+            setSelectedTag(null);
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : "Failed to save edit");
+        } finally {
+            setEditLoading(false);
+            endLLMCall();
+        }
+    }
 
     // Scroll to bottom on new messages
     useEffect(() => {
@@ -298,17 +382,17 @@ export function ChatPanel({ projectId, onMessageSent }: ChatPanelProps) {
     }
 
     return (
-        <div className="flex h-full flex-col bg-slate-50/50">
+        <div className="flex h-full flex-col bg-slate-50/50 dark:bg-transparent">
             {/* Messages */}
             <ScrollArea className="flex-1 p-4">
                 <div className="space-y-6">
                     {messages.length === 0 && (
                         <div className="flex select-none flex-col items-center justify-center py-16 text-center opacity-0 animate-in fade-in duration-700">
-                            <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-yellow-100/50 text-5xl shadow-sm ring-1 ring-yellow-200">
+                            <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-yellow-100/50 dark:bg-yellow-900/20 text-5xl shadow-sm ring-1 ring-yellow-200 dark:ring-yellow-900">
                                 🍍
                             </div>
-                            <h3 className="text-lg font-semibold text-slate-800">Welcome to Vamo</h3>
-                            <p className="mt-2 max-w-[260px] text-sm text-slate-500">
+                            <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">Welcome to Vamo</h3>
+                            <p className="mt-2 max-w-[260px] text-sm text-slate-500 dark:text-slate-400">
                                 Tell me what you&apos;re building today. I&apos;ll help you track progress and earn pineapples.
                             </p>
                         </div>
@@ -317,14 +401,14 @@ export function ChatPanel({ projectId, onMessageSent }: ChatPanelProps) {
                         <div
                             key={msg.id}
                             className={`group flex w-full gap-3 ${msg.role === "user" ? "flex-row-reverse" : ""
-                                } animate-in fade-in slide-in-from-bottom-2 duration-300`}
+                                } animate-in fade-in slide-in-from-bottom-2 duration-300 ${deletingId === msg.id ? "opacity-50 pointer-events-none" : ""}`}
                         >
-                            <Avatar className={`h-8 w-8 shrink-0 shadow-sm ring-2 ring-white ${msg.role === "user" ? "bg-primary/10" : "bg-yellow-50"}`}>
+                            <Avatar className={`h-8 w-8 shrink-0 shadow-sm ring-2 ring-white dark:ring-slate-900 ${msg.role === "user" ? "bg-primary/10" : "bg-yellow-50 dark:bg-yellow-900/10"}`}>
                                 <AvatarFallback
                                     className={
                                         msg.role === "assistant"
-                                            ? "bg-gradient-to-br from-yellow-100 to-yellow-200 text-yellow-700"
-                                            : "bg-gradient-to-br from-slate-100 to-slate-200 text-slate-700"
+                                            ? "bg-gradient-to-br from-yellow-100 to-yellow-200 text-yellow-700 dark:from-yellow-900/40 dark:to-yellow-800/40 dark:text-yellow-500"
+                                            : "bg-gradient-to-br from-slate-100 to-slate-200 text-slate-700 dark:from-slate-800 dark:to-slate-700 dark:text-slate-300"
                                     }
                                 >
                                     {msg.role === "assistant" ? (
@@ -339,13 +423,56 @@ export function ChatPanel({ projectId, onMessageSent }: ChatPanelProps) {
                                 className={`flex max-w-[85%] flex-col gap-1 ${msg.role === "user" ? "items-end" : "items-start"
                                     }`}
                             >
-                                <div
-                                    className={`relative rounded-2xl px-4 py-2.5 text-sm shadow-sm transition-all break-words whitespace-pre-wrap ${msg.role === "user"
-                                        ? "bg-slate-900 text-slate-50 rounded-tr-sm"
-                                        : "bg-white text-slate-800 border border-slate-100 rounded-tl-sm ring-1 ring-slate-900/5"
-                                        }`}
-                                >
-                                    {msg.content}
+                                <div className={`flex items-start gap-2 ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
+                                    {editingId === msg.id ? (
+                                        <div className="flex flex-col gap-2 w-full min-w-[300px]">
+                                            <Textarea
+                                                value={editInput}
+                                                onChange={(e) => setEditInput(e.target.value)}
+                                                className="min-h-[60px] text-sm text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-slate-800/50 resize-none"
+                                                disabled={editLoading}
+                                                autoFocus
+                                            />
+                                            <div className="flex justify-end gap-2">
+                                                <Button size="sm" variant="ghost" onClick={() => { setEditingId(null); setSelectedTag(null); }} disabled={editLoading}>Cancel</Button>
+                                                <Button size="sm" onClick={() => handleSaveEdit(msg.id)} disabled={editLoading}>
+                                                    {editLoading ? "Saving..." : "Save"}
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div
+                                            className={`relative rounded-2xl px-4 py-2.5 text-sm shadow-sm transition-all break-words whitespace-pre-wrap ${msg.role === "user"
+                                                ? "bg-slate-900 text-slate-50 dark:bg-slate-100 dark:text-slate-900 rounded-tr-sm"
+                                                : "bg-white text-slate-800 border border-slate-100 rounded-tl-sm ring-1 ring-slate-900/5 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700"
+                                                }`}
+                                        >
+                                            {msg.content}
+                                        </div>
+                                    )}
+
+                                    {/* Action Menu (User Only) */}
+                                    {msg.role === "user" && !deletingId && editingId !== msg.id && (
+                                        <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:text-slate-300 dark:hover:bg-slate-800/50">
+                                                        <MoreVertical className="h-4 w-4" />
+                                                    </Button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent align="end" className="w-32">
+                                                    <DropdownMenuItem onClick={() => handleEditMessage(msg)} className="cursor-pointer">
+                                                        <Pencil className="mr-2 h-4 w-4" />
+                                                        <span>Edit</span>
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={() => handleDeleteMessage(msg.id)} className="cursor-pointer text-red-600 dark:text-red-400 focus:text-red-700 focus:bg-red-50 dark:focus:text-red-300 dark:focus:bg-red-950/50">
+                                                        <Trash2 className="mr-2 h-4 w-4" />
+                                                        <span>Delete</span>
+                                                    </DropdownMenuItem>
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div className="flex items-center gap-2 px-1">
@@ -358,11 +485,11 @@ export function ChatPanel({ projectId, onMessageSent }: ChatPanelProps) {
                                         </Badge>
                                     )}
                                     {msg.pineapples_earned > 0 && (
-                                        <span className="flex items-center text-[10px] font-bold text-yellow-600 bg-yellow-50 px-1.5 py-0.5 rounded-full ring-1 ring-yellow-200/50">
+                                        <span className="flex items-center text-[10px] font-bold text-yellow-600 bg-yellow-50 dark:text-yellow-500 dark:bg-yellow-950/30 px-1.5 py-0.5 rounded-full ring-1 ring-yellow-200/50 dark:ring-yellow-900/50">
                                             +{msg.pineapples_earned} 🍍
                                         </span>
                                     )}
-                                    <span className="text-[10px] text-slate-400 font-medium">
+                                    <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">
                                         {timeAgo(msg.created_at)}
                                     </span>
                                 </div>
@@ -372,15 +499,15 @@ export function ChatPanel({ projectId, onMessageSent }: ChatPanelProps) {
 
                     {loading && (
                         <div className="flex gap-3 animate-in fade-in slide-in-from-bottom-2">
-                            <Avatar className="h-8 w-8 shrink-0 shadow-sm ring-2 ring-white">
-                                <AvatarFallback className="bg-gradient-to-br from-yellow-100 to-yellow-200 text-yellow-700">
+                            <Avatar className="h-8 w-8 shrink-0 shadow-sm ring-2 ring-white dark:ring-slate-900">
+                                <AvatarFallback className="bg-gradient-to-br from-yellow-100 to-yellow-200 text-yellow-700 dark:from-yellow-900/40 dark:to-yellow-800/40 dark:text-yellow-500">
                                     <Bot className="h-4 w-4" />
                                 </AvatarFallback>
                             </Avatar>
-                            <div className="flex items-center gap-1 rounded-2xl rounded-tl-sm bg-white px-4 py-3 shadow-sm border border-slate-100 ring-1 ring-slate-900/5">
-                                <div className="h-2 w-2 animate-bounce rounded-full bg-slate-400" />
-                                <div className="h-2 w-2 animate-bounce rounded-full bg-slate-400 [animation-delay:0.2s]" />
-                                <div className="h-2 w-2 animate-bounce rounded-full bg-slate-400 [animation-delay:0.4s]" />
+                            <div className="flex items-center gap-1 rounded-2xl rounded-tl-sm bg-white dark:bg-slate-800 px-4 py-3 shadow-sm border border-slate-100 dark:border-slate-700 ring-1 ring-slate-900/5">
+                                <div className="h-2 w-2 animate-bounce rounded-full bg-slate-400 dark:bg-slate-500" />
+                                <div className="h-2 w-2 animate-bounce rounded-full bg-slate-400 dark:bg-slate-500 [animation-delay:0.2s]" />
+                                <div className="h-2 w-2 animate-bounce rounded-full bg-slate-400 dark:bg-slate-500 [animation-delay:0.4s]" />
                             </div>
                         </div>
                     )}
@@ -389,7 +516,7 @@ export function ChatPanel({ projectId, onMessageSent }: ChatPanelProps) {
             </ScrollArea>
 
             {/* Input Area */}
-            <div className="border-t bg-white/50 p-4 backdrop-blur-sm">
+            <div className="border-t bg-white/50 dark:bg-slate-950/50 p-4 backdrop-blur-sm">
                 <div className="flex flex-col gap-3">
                     {/* Tag selector */}
                     <div className="flex gap-1 overflow-x-auto scrollbar-hide pb-1" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
@@ -400,8 +527,8 @@ export function ChatPanel({ projectId, onMessageSent }: ChatPanelProps) {
                                     setSelectedTag(selectedTag === t.value ? null : t.value)
                                 }
                                 className={`group inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap transition-all ${selectedTag === t.value
-                                    ? t.color + " ring-2 ring-primary ring-offset-1 shadow-sm"
-                                    : "bg-white text-slate-600 border border-slate-200 hover:border-slate-300 hover:bg-slate-50 shadow-sm"
+                                    ? t.color + " ring-2 ring-primary ring-offset-1 shadow-sm block w-auto"
+                                    : "bg-white text-slate-600 border border-slate-200 hover:border-slate-300 hover:bg-slate-50 dark:bg-slate-900/50 dark:text-slate-400 dark:border-slate-800 dark:hover:border-slate-700 dark:hover:bg-slate-800 shadow-sm"
                                     }`}
                             >
                                 <Tag className={`h-2.5 w-2.5 ${selectedTag === t.value ? "opacity-100" : "opacity-50 group-hover:opacity-75"}`} />
@@ -410,13 +537,13 @@ export function ChatPanel({ projectId, onMessageSent }: ChatPanelProps) {
                         ))}
                     </div>
 
-                    <div className="relative flex rounded-xl bg-white shadow-sm ring-1 ring-slate-200 focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-1 transition-all">
+                    <div className="relative flex rounded-xl bg-white dark:bg-slate-900 shadow-sm ring-1 ring-slate-200 dark:ring-slate-800 focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-1 dark:focus-within:ring-offset-slate-950 transition-all">
                         <Textarea
                             value={input}
                             onChange={(e) => setInput(e.target.value)}
                             onKeyDown={handleKeyDown}
                             placeholder="Type a message..."
-                            className="min-h-[44px] max-h-[120px] w-full resize-none border-0 bg-transparent py-3 pl-4 pr-12 text-sm placeholder:text-slate-400 focus-visible:ring-0"
+                            className="min-h-[44px] max-h-[120px] w-full resize-none border-0 bg-transparent py-3 pl-4 pr-12 text-sm placeholder:text-slate-400 focus-visible:ring-0 text-slate-900 dark:text-white"
                             rows={1}
                             disabled={isBusy}
                         />
@@ -425,7 +552,7 @@ export function ChatPanel({ projectId, onMessageSent }: ChatPanelProps) {
                                 onClick={handleSend}
                                 disabled={!input.trim() || isBusy}
                                 size="icon"
-                                className={`h-8 w-8 rounded-lg transition-all ${input.trim() ? "bg-primary text-primary-foreground shadow-md hover:bg-primary/90" : "bg-slate-100 text-slate-400"}`}
+                                className={`h-8 w-8 rounded-lg transition-all ${input.trim() ? "bg-primary text-primary-foreground shadow-md hover:bg-primary/90" : "bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500"}`}
                             >
                                 <Send className="h-4 w-4" />
                             </Button>

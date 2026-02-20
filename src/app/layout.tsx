@@ -32,7 +32,7 @@ export default function RootLayout({
                 {/* Allow the browser to open connections to font + data hosts before they are requested */}
                 <link rel="preconnect" href="https://fonts.googleapis.com" />
                 <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-                <link rel="dns-prefetch" href={process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://supabase.co"} />
+                <link rel="dns-prefetch" href={process.env.VITE_SUPABASE_URL ?? "https://supabase.co"} />
             </head>
             <body className={inter.className}>
                 <ThemeProvider>

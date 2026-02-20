@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getOpenAIClient } from "@/lib/openai";
 import { NextResponse } from "next/server";
 import { REWARD_SCHEDULE, RATE_LIMIT_MAX_PROMPTS_PER_HOUR } from "@/lib/types";
+import { z } from "zod";
 
 export async function POST(request: Request) {
     try {
@@ -136,6 +137,7 @@ If insufficient data, say so. Progress delta max is 5 per prompt. Be realistic. 
                     const completionStream = await openai.chat.completions.create({
                         model: "gpt-4o-mini",
                         temperature: 0.5,
+                        max_tokens: 1000,
                         response_format: { type: "json_object" },
                         messages: chatMessages,
                         stream: true,
@@ -150,6 +152,16 @@ If insufficient data, say so. Progress delta max is 5 per prompt. Be realistic. 
                         }
                     }
 
+                    const responseSchema = z.object({
+                        reply: z.string(),
+                        intent: z.string(),
+                        business_update: z.object({
+                            progress_delta: z.number(),
+                            traction_signal: z.string().nullable(),
+                            valuation_adjustment: z.string(),
+                        }).optional()
+                    });
+
                     // Process AI response logic after stream completes
                     let aiResponse = {
                         reply: "Thanks for the update! Your progress has been logged.",
@@ -163,12 +175,24 @@ If insufficient data, say so. Progress delta max is 5 per prompt. Be realistic. 
 
                     try {
                         const jsonStr = fullContent.replace(/```json?\n?/g, "").replace(/```/g, "").trim();
-                        aiResponse = JSON.parse(jsonStr);
+                        const rawResponse = JSON.parse(jsonStr);
+                        const parsed = responseSchema.parse(rawResponse);
+                        aiResponse = {
+                            reply: parsed.reply,
+                            intent: parsed.intent,
+                            business_update: parsed.business_update || aiResponse.business_update
+                        };
                     } catch {
                         const jsonMatch = fullContent.match(/\{[\s\S]*\}/);
                         if (jsonMatch) {
                             try {
-                                aiResponse = JSON.parse(jsonMatch[0]);
+                                const rawResponse = JSON.parse(jsonMatch[0]);
+                                const parsed = responseSchema.parse(rawResponse);
+                                aiResponse = {
+                                    reply: parsed.reply,
+                                    intent: parsed.intent,
+                                    business_update: parsed.business_update || aiResponse.business_update
+                                };
                             } catch {
                                 aiResponse.reply = fullContent || aiResponse.reply;
                             }

@@ -1,6 +1,7 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getOpenAIClient } from "@/lib/openai";
 import { NextResponse } from "next/server";
+import { z } from "zod";
 
 export async function POST(request: Request) {
     try {
@@ -120,6 +121,7 @@ export async function POST(request: Request) {
                 const completion = await openai.chat.completions.create({
                     model: "gpt-4o-mini",
                     temperature: 0.3,
+                    max_tokens: 500,
                     response_format: { type: "json_object" },
                     messages: [
                         {
@@ -146,15 +148,24 @@ Rules:
                     ],
                 });
 
+                const offerSchema = z.object({
+                    offer_low: z.number(),
+                    offer_high: z.number(),
+                    reasoning: z.string(),
+                    signals_used: z.array(z.string())
+                });
+
                 const rawContent = completion.choices[0]?.message?.content || "";
                 try {
                     const jsonStr = rawContent.replace(/```json?\n?/g, "").replace(/```/g, "").trim();
-                    offer = JSON.parse(jsonStr);
+                    const rawOffer = JSON.parse(jsonStr);
+                    offer = offerSchema.parse(rawOffer);
                 } catch {
                     const jsonMatch = rawContent.match(/\{[\s\S]*\}/);
                     if (jsonMatch) {
                         try {
-                            offer = JSON.parse(jsonMatch[0]);
+                            const rawOffer = JSON.parse(jsonMatch[0]);
+                            offer = offerSchema.parse(rawOffer);
                         } catch {
                             // Keep default offer
                         }

@@ -65,22 +65,27 @@ export function Header({
     useEffect(() => {
         if (variant !== "public") return;
         const supabase = getSupabaseBrowserClient();
-        supabase.auth.getUser().then(({ data: { user } }) => {
-            if (user) {
-                supabase
-                    .from("profiles")
-                    .select("*")
-                    .eq("id", user.id)
-                    .single()
-                    .then(({ data }) => {
-                        if (data) setAutoProfile(data as Profile);
-                        setAuthChecked(true);
-                    });
-            } else {
+
+        // Fast path: getSession() reads from local storage/cookie — no network round-trip.
+        // Only call getUser() (network) if we already have a session token to validate.
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            if (!session) {
                 setAuthChecked(true);
+                return;
             }
+            // Session exists — fetch profile (one network call instead of two)
+            supabase
+                .from("profiles")
+                .select("*")
+                .eq("id", session.user.id)
+                .single()
+                .then(({ data }) => {
+                    if (data) setAutoProfile(data as Profile);
+                    setAuthChecked(true);
+                });
         });
     }, [variant]);
+
 
     // Use the passed profile or auto-detected one
     const profile = profileProp ?? autoProfile;
@@ -115,17 +120,15 @@ export function Header({
     };
 
     const navLinkClass = (href: string) =>
-        `text-sm relative transition-colors ${
-            isActive(href)
-                ? "text-primary font-semibold after:absolute after:bottom-0 after:left-1 after:right-1 after:h-0.5 after:rounded-full after:bg-primary"
-                : "text-muted-foreground hover:text-foreground"
+        `text-sm relative transition-colors ${isActive(href)
+            ? "text-primary font-semibold after:absolute after:bottom-0 after:left-1 after:right-1 after:h-0.5 after:rounded-full after:bg-primary"
+            : "text-muted-foreground hover:text-foreground"
         }`;
 
     const mobileNavLinkClass = (href: string) =>
-        `w-full justify-start ${
-            isActive(href)
-                ? "bg-primary/10 text-primary font-medium border-l-2 border-primary"
-                : ""
+        `w-full justify-start ${isActive(href)
+            ? "bg-primary/10 text-primary font-medium border-l-2 border-primary"
+            : ""
         }`;
 
     // Nav links based on effective variant

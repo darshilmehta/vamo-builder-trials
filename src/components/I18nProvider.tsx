@@ -22,52 +22,63 @@ const SUPPORTED_LOCALES = [
 
 const I18nContext = createContext<I18nContextType>({
     locale: "en",
-    setLocale: () => {},
+    setLocale: () => { },
     t: (key) => key,
     locales: SUPPORTED_LOCALES,
 });
 
-// Import all locale files statically (Next.js will bundle these)
+// Only English is bundled eagerly — all other locales are lazy-loaded on demand.
+// This removes ~15-20 kB of JSON from the initial JS payload for English users.
 import en from "@/locales/en.json";
-import es from "@/locales/es.json";
-import fr from "@/locales/fr.json";
-import hi from "@/locales/hi.json";
-import zh from "@/locales/zh.json";
 
-const allTranslations: Record<string, Translations> = { en, es, fr, hi, zh };
+// Mutable cache — populated lazily as users switch language
+const loadedTranslations: Record<string, Translations> = { en };
 
 export function I18nProvider({ children }: { children: React.ReactNode }) {
     const [locale, setLocaleState] = useState("en");
+    const [, forceUpdate] = useState(0); // used to re-render after lazy load
 
     useEffect(() => {
         const stored = localStorage.getItem(STORAGE_KEY);
-        if (stored && allTranslations[stored]) {
-            setLocaleState(stored);
+        if (stored && SUPPORTED_LOCALES.some((l) => l.code === stored)) {
+            // Kick off the lazy load for the stored non-English locale
+            void loadLocaleAndSet(stored);
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    const loadLocaleAndSet = useCallback(async (newLocale: string) => {
+        if (!loadedTranslations[newLocale]) {
+            try {
+                const mod = await import(`@/locales/${newLocale}.json`);
+                loadedTranslations[newLocale] = mod.default as Translations;
+            } catch {
+                // Locale file missing — fall back to English silently
+                return;
+            }
+        }
+        setLocaleState(newLocale);
+        forceUpdate((n) => n + 1); // ensure re-render after dynamic import
+        localStorage.setItem(STORAGE_KEY, newLocale);
+        document.documentElement.lang = newLocale;
     }, []);
 
     const setLocale = useCallback((newLocale: string) => {
-        if (allTranslations[newLocale]) {
-            setLocaleState(newLocale);
-            localStorage.setItem(STORAGE_KEY, newLocale);
-            document.documentElement.lang = newLocale;
-        }
-    }, []);
+        void loadLocaleAndSet(newLocale);
+    }, [loadLocaleAndSet]);
 
     const t = useCallback(
         (key: string, params?: Record<string, string>): string => {
-            // key format: "section.key" e.g. "nav.projects"
             const parts = key.split(".");
             if (parts.length !== 2) return key;
             const [section, field] = parts;
 
-            const translations = allTranslations[locale] || allTranslations["en"];
+            const translations = loadedTranslations[locale] || loadedTranslations["en"];
             const sectionData = translations[section] as Record<string, string> | undefined;
             const value = sectionData?.[field];
 
             if (!value) {
-                // Fallback to English
-                const enSection = allTranslations["en"][section] as Record<string, string> | undefined;
+                const enSection = loadedTranslations["en"][section] as Record<string, string> | undefined;
                 const enValue = enSection?.[field];
                 if (!enValue) return key;
                 return substituteParams(enValue, params);

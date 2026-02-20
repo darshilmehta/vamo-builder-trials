@@ -2,9 +2,22 @@
 
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 
-export async function trackEvent(
+/**
+ * Fire-and-forget analytics tracking.
+ * Deliberately NOT async at the call site — callers should NOT await this.
+ * This avoids blocking the main thread for a non-critical background insert.
+ */
+export function trackEvent(
     eventName: string,
     properties: Record<string, unknown> = {}
+) {
+    // Intentionally not awaited — runs in the background
+    void _trackEvent(eventName, properties);
+}
+
+async function _trackEvent(
+    eventName: string,
+    properties: Record<string, unknown>
 ) {
     try {
         const supabase = getSupabaseBrowserClient();
@@ -20,7 +33,7 @@ export async function trackEvent(
             event_name: eventName,
             properties,
         });
-    } catch (error) {
-        console.error("Failed to track event:", error);
+    } catch {
+        // Silently swallow — analytics failure should never affect the user
     }
 }

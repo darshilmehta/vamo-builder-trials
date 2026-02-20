@@ -16,7 +16,7 @@ interface Pineapple {
 }
 
 // 10 pineapples → max 45 collision pairs per frame (vs 153 at 18)
-const COUNT = 10;
+const COUNT = 30;
 const DAMPING = 0.99;
 const BOUNCE = 0.5;
 const GRAB_DIST = 50;

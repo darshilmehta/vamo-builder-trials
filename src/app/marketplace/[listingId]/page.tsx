@@ -39,6 +39,7 @@ export default async function ListingPage({ params }: { params: { listingId: str
             description: string;
             progress_score: number;
             url: string;
+            screenshot_url: string | null;
             valuation_low?: number;
             valuation_high?: number;
             traction_signals?: string[];
@@ -114,11 +115,33 @@ export default async function ListingPage({ params }: { params: { listingId: str
                             </p>
                         </div>
 
-                        {typedListing.screenshots && (typedListing.screenshots as string[]).length > 0 ? (
+                        {/* Screenshots Gallery */}
+                        {(Array.isArray(typedListing.screenshots) && typedListing.screenshots.length > 0) ? (
+                            <div className="space-y-4">
+                                <div className="rounded-2xl overflow-hidden border bg-black/5 shadow-inner">
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img
+                                        src={typedListing.screenshots[0]}
+                                        alt="Project Screenshot"
+                                        className="w-full h-auto object-cover max-h-[500px]"
+                                    />
+                                </div>
+                                {typedListing.screenshots.length > 1 && (
+                                    <div className="grid grid-cols-3 gap-4">
+                                        {typedListing.screenshots.slice(1).map((src, idx) => (
+                                            <div key={idx} className="rounded-xl overflow-hidden border bg-black/5 aspect-video">
+                                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                <img src={src} alt={`Screenshot ${idx + 2}`} className="w-full h-full object-cover" />
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        ) : typedListing.projects?.screenshot_url ? (
                             <div className="rounded-2xl overflow-hidden border bg-black/5 shadow-inner">
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img
-                                    src={(typedListing.screenshots as string[])[0]}
+                                    src={typedListing.projects.screenshot_url}
                                     alt="Project Screenshot"
                                     className="w-full h-auto object-cover max-h-[500px]"
                                 />

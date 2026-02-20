@@ -44,6 +44,7 @@ import {
     MessageSquare,
     Monitor,
     BarChart3,
+    Trash2,
 } from "lucide-react";
 import type { Project, Profile } from "@/lib/types";
 
@@ -88,6 +89,7 @@ function BuilderPageContent({
     const [listingPriceHigh, setListingPriceHigh] = useState("");
     const [urlDialog, setUrlDialog] = useState(false);
     const [projectUrl, setProjectUrl] = useState("");
+    const [listingScreenshots, setListingScreenshots] = useState<string[]>([]);
     const chatPanelRef = usePanelRef();
     const businessPanelRef = usePanelRef();
     const [chatCollapsed, setChatCollapsed] = useState(false);
@@ -248,6 +250,36 @@ function BuilderPageContent({
         }
     }
 
+    const fileToBase64 = (file: File): Promise<string> => {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = (error) => reject(error);
+        });
+    };
+
+    async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+        const files = e.target.files;
+        if (!files || files.length === 0) return;
+
+        const newScreenshots: string[] = [];
+        for (let i = 0; i < files.length; i++) {
+            try {
+                const base64 = await fileToBase64(files[i]);
+                newScreenshots.push(base64);
+            } catch (err) {
+                console.error("Error converting file to base64:", err);
+                toast.error("Failed to process one or more images");
+            }
+        }
+        setListingScreenshots((prev) => [...prev, ...newScreenshots]);
+    }
+
+    function removeScreenshot(index: number) {
+        setListingScreenshots((prev) => prev.filter((_, i) => i !== index));
+    }
+
     async function handlePublishListing() {
         setListingLoading(true);
         try {
@@ -257,6 +289,12 @@ function BuilderPageContent({
             } = await supabase.auth.getUser();
 
             if (!user) return;
+
+            if (listingScreenshots.length === 0) {
+                toast.error("Please add at least one screenshot of your project");
+                setListingLoading(false);
+                return;
+            }
 
             // Get timeline snapshot
             const { data: timeline } = await supabase
@@ -283,6 +321,7 @@ function BuilderPageContent({
                 asking_price_low: parseInt(listingPriceLow) || project?.valuation_low || 0,
                 asking_price_high: parseInt(listingPriceHigh) || project?.valuation_high || 0,
                 timeline_snapshot: timeline,
+                screenshots: listingScreenshots,
                 metrics: {
                     progress_score: project?.progress_score,
                 },
@@ -668,6 +707,41 @@ function BuilderPageContent({
                                     onChange={(e) => setListingPriceHigh(e.target.value)}
                                 />
                             </div>
+                        </div>
+
+                        <div className="space-y-3">
+                            <label className="text-sm font-semibold flex items-center justify-between">
+                                Screenshots
+                                <span className="text-[10px] font-bold text-gradient-orange uppercase tracking-tighter bg-orange-50 px-1.5 py-0.5 rounded border border-orange-100">Required</span>
+                            </label>
+
+                            <div className="grid grid-cols-2 gap-3">
+                                {listingScreenshots.map((src, idx) => (
+                                    <div key={idx} className="group relative aspect-video rounded-lg overflow-hidden border bg-muted/50">
+                                        <img src={src} alt="Preview" className="w-full h-full object-cover" />
+                                        <button
+                                            onClick={() => removeScreenshot(idx)}
+                                            className="absolute top-1 right-1 p-1 bg-black/60 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                        >
+                                            <Trash2 className="h-3 w-3" />
+                                        </button>
+                                    </div>
+                                ))}
+                                {listingScreenshots.length < 4 && (
+                                    <label className="flex flex-col items-center justify-center aspect-video rounded-lg border-2 border-dashed border-muted-foreground/20 hover:border-primary/50 hover:bg-primary/[0.02] cursor-pointer transition-all">
+                                        <Monitor className="h-6 w-6 text-muted-foreground mb-1" />
+                                        <span className="text-[10px] font-bold text-muted-foreground uppercase">Upload</span>
+                                        <input
+                                            type="file"
+                                            className="hidden"
+                                            accept="image/*"
+                                            multiple
+                                            onChange={handleFileChange}
+                                        />
+                                    </label>
+                                )}
+                            </div>
+                            <p className="text-[10px] text-muted-foreground">Add up to 4 screenshots of your product in action.</p>
                         </div>
                     </div>
                     <DialogFooter>

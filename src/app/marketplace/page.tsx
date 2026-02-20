@@ -211,7 +211,14 @@ export default function MarketplacePage() {
                                     className="h-full overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 border-primary/10"
                                 >
                                     <div className="relative h-48 w-full overflow-hidden">
-                                        {listing.projects?.screenshot_url ? (
+                                        {(Array.isArray(listing.screenshots) && listing.screenshots.length > 0) ? (
+                                            // eslint-disable-next-line @next/next/no-img-element
+                                            <img
+                                                src={listing.screenshots[0]}
+                                                alt={listing.title}
+                                                className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+                                            />
+                                        ) : listing.projects?.screenshot_url ? (
                                             // eslint-disable-next-line @next/next/no-img-element
                                             <img
                                                 src={listing.projects.screenshot_url}

@@ -38,8 +38,7 @@ import type { Profile } from "@/lib/types";
 type HeaderProps = {
     variant?: "public" | "authenticated" | "builder";
     profile?: Profile | null;
-    showBack?: boolean;
-    backHref?: string;
+
     /** Render slot for right-side actions (used by builder) */
     actions?: React.ReactNode;
 };
@@ -47,8 +46,6 @@ type HeaderProps = {
 export function Header({
     variant = "public",
     profile: profileProp,
-    showBack = false,
-    backHref = "/projects",
     actions,
 }: HeaderProps) {
     const router = useRouter();

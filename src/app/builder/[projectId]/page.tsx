@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
+
 import { toast } from "sonner";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { useRealtimeTable } from "@/lib/useRealtimeTable";
@@ -38,18 +38,12 @@ import {
     TooltipContent,
 } from "@/components/ui/tooltip";
 import {
-    Wallet,
     ShoppingCart,
     Sparkles,
     Loader2,
     MessageSquare,
     Monitor,
     BarChart3,
-    PanelLeftClose,
-    PanelLeftOpen,
-    PanelRightClose,
-    PanelRightOpen,
-    Layout,
 } from "lucide-react";
 import type { Project, Profile } from "@/lib/types";
 

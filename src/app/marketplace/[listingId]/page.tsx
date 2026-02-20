@@ -3,19 +3,15 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
     ArrowLeft,
-    DollarSign,
     TrendingUp,
-    Calendar,
-    Share2,
-    MessageSquare,
     Store,
     CheckCircle2
 } from "lucide-react";
 import { ListingSidebar } from "@/components/marketplace/ListingSidebar";
-import type { Listing, ActivityEvent, Profile } from "@/lib/types";
+import type { Listing, ActivityEvent } from "@/lib/types";
 
 export default async function ListingPage({ params }: { params: { listingId: string } }) {
     const supabase = createSupabaseServerClient();

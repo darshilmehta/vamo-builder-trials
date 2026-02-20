@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { DollarSign, MessageSquare, Share2, TrendingUp, Calendar, Check, Copy } from "lucide-react";
+import { DollarSign, MessageSquare, Share2, TrendingUp, Calendar, Check } from "lucide-react";
 import { toast } from "sonner";
 import type { Listing } from "@/lib/types";
 

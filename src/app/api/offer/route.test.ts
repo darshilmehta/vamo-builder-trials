@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { POST } from "./route";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getOpenAIClient } from "@/lib/openai";

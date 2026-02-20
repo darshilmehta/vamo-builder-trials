@@ -65,15 +65,15 @@ cp .env.local.example .env.local
 Fill in the values:
 
 ```env
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key
 OPENAI_API_KEY=sk-your-openai-key
 ```
 
 | Variable | Description | Where to Find |
 |----------|-------------|---------------|
-| `NEXT_PUBLIC_SUPABASE_URL` | Your Supabase project URL | Supabase Dashboard → Settings → API |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon/public key | Supabase Dashboard → Settings → API |
+| `VITE_SUPABASE_URL` | Your Supabase project URL | Supabase Dashboard → Settings → API |
+| `VITE_SUPABASE_ANON_KEY` | Supabase anon/public key | Supabase Dashboard → Settings → API |
 | `OPENAI_API_KEY` | OpenAI API key for AI features | [platform.openai.com/api-keys](https://platform.openai.com/api-keys) |
 
 > ⚠️ **Important:** Never commit `.env.local`. It is already in `.gitignore`. No service role key is used anywhere in the codebase — all data access goes through the anon key + user JWT + RLS policies.
@@ -615,8 +615,8 @@ CREATE TRIGGER on_auth_user_created
 
    | Variable | Value |
    |----------|-------|
-   | `NEXT_PUBLIC_SUPABASE_URL` | `https://your-project.supabase.co` |
-   | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Your Supabase anon key |
+   | `VITE_SUPABASE_URL` | `https://your-project.supabase.co` |
+   | `VITE_SUPABASE_ANON_KEY` | Your Supabase anon key |
    | `OPENAI_API_KEY` | Your OpenAI API key |
 
 4. **Deploy:**

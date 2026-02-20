@@ -54,8 +54,8 @@ Edit `.env.local` with your actual keys:
 
 ```env
 # Supabase — found in Dashboard → Settings → API
-NEXT_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIs...
+VITE_SUPABASE_URL=https://your-project-ref.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIs...
 
 # OpenAI — found at platform.openai.com/api-keys
 OPENAI_API_KEY=sk-proj-...
@@ -63,7 +63,7 @@ OPENAI_API_KEY=sk-proj-...
 
 > **⚠️ Security:**
 > - `.env.local` is listed in `.gitignore` — it will **never** be committed
-> - The `NEXT_PUBLIC_SUPABASE_ANON_KEY` is a **public** key — safe for the client
+> - The `VITE_SUPABASE_ANON_KEY` is a **public** key — safe for the client
 > - `OPENAI_API_KEY` is **server-only** — never exposed to the browser
 > - **No service role key** is used anywhere in the codebase
 
@@ -149,8 +149,8 @@ Go to **Table Editor** in the Supabase Dashboard and confirm all 9 tables exist:
 
 1. Go to **Settings** → **API**
 2. Copy:
-   - **Project URL** → `NEXT_PUBLIC_SUPABASE_URL`
-   - **anon / public key** → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - **Project URL** → `VITE_SUPABASE_URL`
+   - **anon / public key** → `VITE_SUPABASE_ANON_KEY`
 
 > **⚠️ Never use the `service_role` key.** This project is designed to work entirely with the anon key + user JWT + RLS policies.
 
@@ -204,8 +204,8 @@ Open [http://localhost:3000](http://localhost:3000).
 
    | Key | Value |
    |-----|-------|
-   | `NEXT_PUBLIC_SUPABASE_URL` | `https://your-project-ref.supabase.co` |
-   | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Your Supabase anon key |
+   | `VITE_SUPABASE_URL` | `https://your-project-ref.supabase.co` |
+   | `VITE_SUPABASE_ANON_KEY` | Your Supabase anon key |
    | `OPENAI_API_KEY` | Your OpenAI API key |
 
 6. Click **Deploy**
@@ -257,7 +257,7 @@ After deploying, update Supabase to allow the new domain:
 
 ### "Supabase environment variables are missing"
 
-- Ensure `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are set
+- Ensure `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` are set
 - Restart the dev server after changing `.env.local`
 - On Vercel, ensure env vars are set for the correct environment (Production / Preview)
 
@@ -299,8 +299,8 @@ After deploying, update Supabase to allow the new domain:
 
 | Variable | Required | Client/Server | Description |
 |----------|----------|--------------|-------------|
-| `NEXT_PUBLIC_SUPABASE_URL` | ✅ | Client + Server | Supabase project URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ✅ | Client + Server | Supabase anon/public key |
+| `VITE_SUPABASE_URL` | ✅ | Client + Server | Supabase project URL |
+| `VITE_SUPABASE_ANON_KEY` | ✅ | Client + Server | Supabase anon/public key |
 | `OPENAI_API_KEY` | ✅ | Server only | OpenAI API key for chat and offers |
 
 > **Confirmation:** No `SUPABASE_SERVICE_ROLE_KEY` is used anywhere in this codebase. All database operations use the anon key + authenticated user JWT + RLS policies.

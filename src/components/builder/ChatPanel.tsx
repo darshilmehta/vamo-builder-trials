@@ -58,12 +58,14 @@ export function ChatPanel({ projectId, onMessageSent }: ChatPanelProps) {
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState("");
     const [selectedTag, setSelectedTag] = useState<MessageTag>(null);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(false); // true = waiting for first token
+    const [streaming, setStreaming] = useState(false); // true = tokens flowing
     const [initialLoading, setInitialLoading] = useState(true);
+    const streamingAssistantIdRef = useRef<string | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
-    const sendingRef = useRef(false); // Track if we're in the middle of sending
-    const pendingIdsRef = useRef<Set<string>>(new Set()); // Track IDs we've already added optimistically
-    const isBusy = loading || isLLMLoading;
+    const sendingRef = useRef(false);
+    const pendingIdsRef = useRef<Set<string>>(new Set());
+    const isBusy = loading || streaming || isLLMLoading;
 
     // Load messages
     useEffect(() => {
@@ -112,6 +114,7 @@ export function ChatPanel({ projectId, onMessageSent }: ChatPanelProps) {
         const messageText = input.trim();
         setInput("");
         setLoading(true);
+        setStreaming(false);
         startLLMCall();
         sendingRef.current = true;
         pendingIdsRef.current.clear();
@@ -128,6 +131,11 @@ export function ChatPanel({ projectId, onMessageSent }: ChatPanelProps) {
             pineapples_earned: 0,
             created_at: new Date().toISOString(),
         };
+
+        // Streaming assistant placeholder — only added to list once first token arrives
+        const streamingAssistantId = `streaming-${Date.now()}`;
+        streamingAssistantIdRef.current = streamingAssistantId;
+
         setMessages((prev) => [...prev, tempUserMsg]);
 
         try {
@@ -141,72 +149,131 @@ export function ChatPanel({ projectId, onMessageSent }: ChatPanelProps) {
                 }),
             });
 
-            const data = await res.json();
-
             if (!res.ok) {
+                const data = await res.json();
                 throw new Error(data.error || "Failed to send message");
             }
 
-            const assistantMsg = data.message as Message;
+            if (!res.body) throw new Error("No response body");
 
-            // Replace temp message with the real user message from realtime,
-            // and add the assistant message. We use pendingIdsRef to find
-            // the real user message that arrived via realtime during our send.
-            setMessages((prev) => {
-                // Remove the temp optimistic message
-                const filtered = prev.filter((m) => m.id !== tempUserMsg.id);
+            const reader = res.body.getReader();
+            const decoder = new TextDecoder();
+            let accumulatedJson = "";
+            let finalMetadata: any = null;
+            let hasInsertedBubble = false;
 
-                // Find the real user message ID from pending realtime events
-                // (it won't match assistant msg id)
-                const realUserMsgId = Array.from(pendingIdsRef.current).find(
-                    (id) => id !== assistantMsg?.id
-                );
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
 
-                // Build the final user message - use the real DB ID if available
-                const finalUserMsg: Message = {
-                    ...tempUserMsg,
-                    id: realUserMsgId || `user-${Date.now()}`,
-                    pineapples_earned: 0,
-                };
+                const chunk = decoder.decode(value, { stream: true });
+                accumulatedJson += chunk;
 
-                // Check we're not adding duplicates
-                const hasUser = filtered.some((m) => m.id === finalUserMsg.id);
-                const hasAssistant = filtered.some((m) => m.id === assistantMsg?.id);
-
-                const result = [...filtered];
-                if (!hasUser) result.push(finalUserMsg);
-                if (assistantMsg && !hasAssistant) {
-                    result.push({
-                        ...assistantMsg,
-                        pineapples_earned: data.pineapplesEarned || 0,
-                    });
+                // Check for metadata delimiter
+                if (accumulatedJson.includes("\n__METADATA__\n")) {
+                    const parts = accumulatedJson.split("\n__METADATA__\n");
+                    accumulatedJson = parts[0];
+                    try {
+                        finalMetadata = JSON.parse(parts[1]);
+                    } catch (e) {
+                        console.error("Failed to parse metadata", e);
+                    }
                 }
-                return result;
-            });
 
-            if (data.pineapplesEarned > 0) {
-                toast.success(`+${data.pineapplesEarned} 🍍 earned!`);
+                // Extract partial reply from the streamed JSON
+                // OpenAI JSON mode always emits: {"reply": "...", ...}
+                const replyMatch = accumulatedJson.match(/"reply":\s*"((?:[^"\\]|\\.)*)/);
+                const partialReply = replyMatch
+                    ? replyMatch[1].replace(/\\n/g, "\n").replace(/\\"/g, '"').replace(/\\\\/g, "\\")
+                    : "";
+
+                if (partialReply) {
+                    if (!hasInsertedBubble) {
+                        // First token: switch from loading-dots to streaming bubble
+                        hasInsertedBubble = true;
+                        setLoading(false);
+                        setStreaming(true);
+                        setMessages((prev) => [
+                            ...prev,
+                            {
+                                id: streamingAssistantId,
+                                project_id: projectId,
+                                user_id: "",
+                                role: "assistant",
+                                content: partialReply,
+                                extracted_intent: null,
+                                tag: null,
+                                pineapples_earned: 0,
+                                created_at: new Date().toISOString(),
+                            } as Message,
+                        ]);
+                    } else {
+                        setMessages((prev) =>
+                            prev.map((m) =>
+                                m.id === streamingAssistantId
+                                    ? { ...m, content: partialReply }
+                                    : m
+                            )
+                        );
+                    }
+                }
             }
 
-            trackEvent("prompt_sent", {
-                projectId,
-                messageId: data.message?.id,
-            });
+            // Finalize with metadata
+            if (finalMetadata) {
+                const assistantMsg = finalMetadata.message as Message;
+
+                setMessages((prev) => {
+                    const filtered = prev.filter(
+                        (m) => m.id !== tempUserMsg.id && m.id !== streamingAssistantId
+                    );
+
+                    const realUserMsgId = Array.from(pendingIdsRef.current).find(
+                        (id) => id !== assistantMsg?.id
+                    );
+
+                    const finalUserMsg: Message = {
+                        ...tempUserMsg,
+                        id: realUserMsgId || `user-${Date.now()}`,
+                    };
+
+                    const result = [...filtered];
+                    if (!result.some((m) => m.id === finalUserMsg.id)) {
+                        result.push(finalUserMsg);
+                    }
+                    if (assistantMsg && !result.some((m) => m.id === assistantMsg.id)) {
+                        result.push(assistantMsg);
+                    }
+                    return result;
+                });
+
+                if (finalMetadata.pineapplesEarned > 0) {
+                    toast.success(`+${finalMetadata.pineapplesEarned} 🍍 earned!`);
+                }
+
+                trackEvent("prompt_sent", {
+                    projectId,
+                    messageId: assistantMsg?.id,
+                });
+            }
 
             onMessageSent();
         } catch (error) {
             toast.error(
                 error instanceof Error ? error.message : "Failed to send message"
             );
-            // Keep the input so user doesn't lose their message
             setInput(messageText);
             setMessages((prev) =>
-                prev.filter((m) => m.id !== tempUserMsg.id)
+                prev.filter(
+                    (m) => m.id !== tempUserMsg.id && m.id !== streamingAssistantIdRef.current
+                )
             );
         } finally {
             sendingRef.current = false;
+            streamingAssistantIdRef.current = null;
             pendingIdsRef.current.clear();
             setLoading(false);
+            setStreaming(false);
             endLLMCall();
             setSelectedTag(null);
         }

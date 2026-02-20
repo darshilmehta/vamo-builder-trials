@@ -10,17 +10,17 @@ interface Pineapple {
     r: number;
     rotation: number;
     rotationV: number;
-    // each pineapple has its own drift phase for organic floating
     phaseX: number;
     phaseY: number;
     driftSpeed: number;
 }
 
-const COUNT = 18;
+// 10 pineapples → max 45 collision pairs per frame (vs 153 at 18)
+const COUNT = 10;
 const DAMPING = 0.99;
 const BOUNCE = 0.5;
 const GRAB_DIST = 50;
-const DRIFT_STRENGTH = 0.008; // gentle sinusoidal nudge
+const DRIFT_STRENGTH = 0.008;
 
 export function PineapplePhysics() {
     const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -29,6 +29,8 @@ export function PineapplePhysics() {
     const animRef = useRef<number>(0);
     const sizeRef = useRef({ w: 0, h: 0 });
     const frameRef = useRef(0);
+    // Pre-rendered emoji sprites — avoids font shaping cost every frame
+    const spriteRef = useRef<HTMLCanvasElement[]>([]);
 
     const initPineapples = useCallback((w: number, h: number) => {
         const pines: Pineapple[] = [];
@@ -47,6 +49,22 @@ export function PineapplePhysics() {
             });
         }
         pinesRef.current = pines;
+
+        // Pre-render emoji into tiny off-screen canvases so we
+        // don't pay font shaping cost every single frame.
+        spriteRef.current = pines.map((p) => {
+            const size = Math.ceil(p.r * 2.2);
+            const oc = document.createElement("canvas");
+            oc.width = size;
+            oc.height = size;
+            const octx = oc.getContext("2d")!;
+            octx.font = `${Math.ceil(p.r * 1.5)}px serif`;
+            octx.textAlign = "center";
+            octx.textBaseline = "middle";
+            octx.globalAlpha = 0.7;
+            octx.fillText("🍍", size / 2, size / 2);
+            return oc;
+        });
     }, []);
 
     useEffect(() => {
@@ -71,8 +89,11 @@ export function PineapplePhysics() {
         window.addEventListener("resize", resize);
 
         const tick = () => {
+            animRef.current = requestAnimationFrame(tick);
+
             const { w, h } = sizeRef.current;
             const pines = pinesRef.current;
+            const sprites = spriteRef.current;
             const mouse = mouseRef.current;
             frameRef.current++;
             const frame = frameRef.current;
@@ -88,10 +109,9 @@ export function PineapplePhysics() {
                     p.vx = (mouse.x - mouse.px) * 0.5;
                     p.vy = (mouse.y - mouse.py) * 0.5;
                 } else {
-                    // Gentle sinusoidal drift instead of gravity — true floating
+                    // Gentle sinusoidal drift
                     p.vx += Math.sin(frame * p.driftSpeed + p.phaseX) * DRIFT_STRENGTH;
                     p.vy += Math.cos(frame * p.driftSpeed + p.phaseY) * DRIFT_STRENGTH;
-
                     p.vx *= DAMPING;
                     p.vy *= DAMPING;
                     p.x += p.vx;
@@ -105,14 +125,15 @@ export function PineapplePhysics() {
                     if (p.y + p.r > h) { p.y = h - p.r; p.vy = -Math.abs(p.vy) * BOUNCE; }
                 }
 
-                // Collisions
+                // O(n²) collision — manageable at COUNT=10 (45 pairs max)
                 for (let j = i + 1; j < pines.length; j++) {
                     const q = pines[j];
                     const dx = q.x - p.x;
                     const dy = q.y - p.y;
-                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    const dist2 = dx * dx + dy * dy;
                     const minDist = p.r + q.r;
-                    if (dist < minDist && dist > 0) {
+                    if (dist2 < minDist * minDist && dist2 > 0) {
+                        const dist = Math.sqrt(dist2);
                         const nx = dx / dist;
                         const ny = dy / dist;
                         const overlap = (minDist - dist) * 0.5;
@@ -133,24 +154,22 @@ export function PineapplePhysics() {
                 }
             }
 
-            // Draw
-            for (const p of pines) {
+            // Draw using pre-rendered sprite sheets — no fillText in hot path
+            for (let i = 0; i < pines.length; i++) {
+                const p = pines[i];
+                const sprite = sprites[i];
+                if (!sprite) continue;
                 ctx.save();
                 ctx.translate(p.x, p.y);
                 ctx.rotate(p.rotation);
-                ctx.font = `${p.r * 1.5}px serif`;
-                ctx.textAlign = "center";
-                ctx.textBaseline = "middle";
-                ctx.globalAlpha = 0.7;
-                ctx.fillText("🍍", 0, 0);
+                ctx.drawImage(sprite, -sprite.width / 2, -sprite.height / 2);
                 ctx.restore();
             }
-
-            animRef.current = requestAnimationFrame(tick);
         };
+
         animRef.current = requestAnimationFrame(tick);
 
-        // Mouse/touch events
+        // Mouse / touch events
         const getPos = (e: MouseEvent | Touch) => ({ x: e.clientX, y: e.clientY });
 
         const onDown = (x: number, y: number) => {
@@ -214,7 +233,7 @@ export function PineapplePhysics() {
         <canvas
             ref={canvasRef}
             className="fixed inset-0 z-0"
-            style={{ cursor: "grab" }}
+            style={{ cursor: "grab", willChange: "contents" }}
         />
     );
 }

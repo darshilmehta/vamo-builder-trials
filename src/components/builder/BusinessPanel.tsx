@@ -35,7 +35,10 @@ import {
     Banknote,
     Activity,
     Clock,
+    X,
+    ExternalLink,
 } from "lucide-react";
+
 import {
     LineChart,
     Line,
@@ -120,7 +123,9 @@ export function BusinessPanel({ projectId, refreshKey }: BusinessPanelProps) {
     const [linkUrl, setLinkUrl] = useState("");
     const [linkLoading, setLinkLoading] = useState(false);
     const [linkError, setLinkError] = useState<string | null>(null);
-    const [linkedAssets, setLinkedAssets] = useState<Record<string, boolean>>({});
+    const [unlinkTarget, setUnlinkTarget] = useState<string | null>(null);
+    const [unlinkLoading, setUnlinkLoading] = useState(false);
+    const [linkedAssets, setLinkedAssets] = useState<Record<string, { url: string; eventId: string } | undefined>>({});
 
     const loadData = useCallback(async () => {
         const supabase = getSupabaseBrowserClient();
@@ -213,18 +218,27 @@ export function BusinessPanel({ projectId, refreshKey }: BusinessPanelProps) {
             setChartData([]);
         }
 
-        // Check linked assets
+        // Check linked assets — fetch id + metadata so we can display the URL and delete the row
         const { data: links } = await supabase
             .from("activity_events")
-            .select("event_type")
+            .select("id, event_type, metadata")
             .eq("project_id", projectId)
-            .in("event_type", ["link_linkedin", "link_github", "link_website"]);
+            .in("event_type", ["link_linkedin", "link_github", "link_website"])
+            .order("created_at", { ascending: false });
 
-        const linked: Record<string, boolean> = {};
+        const linked: Record<string, { url: string; eventId: string }> = {};
         (links || []).forEach((l) => {
-            linked[l.event_type as string] = true;
+            const key = l.event_type as string;
+            if (!linked[key]) {
+                // Keep only the most recent link event per type
+                linked[key] = {
+                    url: (l.metadata as any)?.url ?? "",
+                    eventId: l.id,
+                };
+            }
         });
         setLinkedAssets(linked);
+
 
         setLoading(false);
     }, [projectId]);
@@ -341,13 +355,41 @@ export function BusinessPanel({ projectId, refreshKey }: BusinessPanelProps) {
 
         trackEvent("link_added", { projectId, linkType: linkDialog });
 
-        setLinkedAssets((prev) => ({ ...prev, [eventType]: true }));
+        setLinkedAssets((prev) => ({ ...prev, [eventType]: { url: linkUrl, eventId: "pending" } }));
         setLinkDialog(null);
         setLinkUrl("");
         setLinkError(null);
         setLinkLoading(false);
         toast.success(`${linkDialog} linked! 🍍`);
         loadData();
+    }
+
+    async function handleUnlinkAsset(assetKey: string) {
+        const eventType = `link_${assetKey}`;
+        const linked = linkedAssets[eventType];
+        if (!linked) return;
+
+        setUnlinkLoading(true);
+        const supabase = getSupabaseBrowserClient();
+
+        const { error } = await supabase
+            .from("activity_events")
+            .delete()
+            .eq("id", linked.eventId);
+
+        if (error) {
+            toast.error("Failed to unlink. Please try again.");
+        } else {
+            setLinkedAssets((prev) => {
+                const next = { ...prev };
+                delete next[eventType];
+                return next;
+            });
+            toast.success(`${assetKey} unlinked.`);
+            trackEvent("link_removed", { projectId, linkType: assetKey });
+        }
+        setUnlinkTarget(null);
+        setUnlinkLoading(false);
     }
 
     if (loading) {
@@ -638,32 +680,60 @@ export function BusinessPanel({ projectId, refreshKey }: BusinessPanelProps) {
                                     reward: "3 🍍",
                                 },
                             ] as const
-                        ).map((asset) => (
-                            <div
-                                key={asset.key}
-                                className="flex items-center justify-between rounded-md border dark:border-slate-800 p-2"
-                            >
-                                <div className="flex items-center gap-2">
-                                    {asset.icon}
-                                    <span className="text-sm">{asset.label}</span>
+                        ).map((asset) => {
+                            const linked = linkedAssets[`link_${asset.key}`];
+                            return (
+                                <div
+                                    key={asset.key}
+                                    className="flex items-center justify-between gap-2 rounded-md border dark:border-slate-800 p-2"
+                                >
+                                    <div className="flex items-center gap-2 min-w-0">
+                                        {asset.icon}
+                                        <div className="min-w-0">
+                                            <span className="text-sm font-medium">{asset.label}</span>
+                                            {linked?.url && (
+                                                <a
+                                                    href={linked.url}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="flex items-center gap-0.5 text-[10px] text-muted-foreground hover:text-primary truncate max-w-[130px]"
+                                                    title={linked.url}
+                                                >
+                                                    <ExternalLink className="h-2.5 w-2.5 shrink-0" />
+                                                    {linked.url.replace(/^https?:\/\//, "")}
+                                                </a>
+                                            )}
+                                        </div>
+                                    </div>
+                                    {linked ? (
+                                        <div className="flex items-center gap-1.5 shrink-0">
+                                            <Badge variant="secondary" className="gap-1 bg-green-100 text-green-700 dark:bg-green-950/50 dark:text-green-400 dark:border-green-900/50 h-6">
+                                                <Check className="h-3 w-3" />
+                                                Linked
+                                            </Badge>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-6 w-6 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                                title={`Unlink ${asset.label}`}
+                                                onClick={() => setUnlinkTarget(asset.key)}
+                                            >
+                                                <X className="h-3 w-3" />
+                                            </Button>
+                                        </div>
+                                    ) : (
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-7 text-xs shrink-0"
+                                            onClick={() => setLinkDialog(asset.key)}
+                                        >
+                                            Link +{asset.reward}
+                                        </Button>
+                                    )}
                                 </div>
-                                {linkedAssets[`link_${asset.key}`] ? (
-                                    <Badge variant="secondary" className="gap-1 bg-green-100 text-green-700 dark:bg-green-950/50 dark:text-green-400 dark:border-green-900/50">
-                                        <Check className="h-3 w-3" />
-                                        Linked
-                                    </Badge>
-                                ) : (
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="h-7 text-xs"
-                                        onClick={() => setLinkDialog(asset.key)}
-                                    >
-                                        Link +{asset.reward}
-                                    </Button>
-                                )}
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 </div>
 
@@ -745,6 +815,45 @@ export function BusinessPanel({ projectId, refreshKey }: BusinessPanelProps) {
                                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                             ) : null}
                             Link & Earn 🍍
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Unlink Confirmation Dialog */}
+            <Dialog
+                open={!!unlinkTarget}
+                onOpenChange={(open) => {
+                    if (!open && !unlinkLoading) setUnlinkTarget(null);
+                }}
+            >
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Unlink {unlinkTarget}?</DialogTitle>
+                        <DialogDescription>
+                            This will remove the {unlinkTarget} link from your project. You
+                            won&apos;t be able to re-earn the pineapple reward for this asset.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="flex gap-2">
+                        <Button
+                            variant="ghost"
+                            onClick={() => setUnlinkTarget(null)}
+                            disabled={unlinkLoading}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            onClick={() => unlinkTarget && handleUnlinkAsset(unlinkTarget)}
+                            disabled={unlinkLoading}
+                        >
+                            {unlinkLoading ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                                <X className="mr-2 h-4 w-4" />
+                            )}
+                            Unlink
                         </Button>
                     </DialogFooter>
                 </DialogContent>

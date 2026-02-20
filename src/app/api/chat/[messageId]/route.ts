@@ -83,7 +83,7 @@ async function getAssistantMsgIdFromRollback(supabase: any, projectId: string, u
     return nextMsg?.id || null;
 }
 
-export async function rollbackPromptEffects(supabase: any, user: any, projectId: string, messageId: string, isEdit: boolean = false) {
+async function rollbackPromptEffects(supabase: any, user: any, projectId: string, messageId: string, isEdit: boolean = false) {
     const { data: activityEvents } = await supabase
         .from("activity_events")
         .select("*")

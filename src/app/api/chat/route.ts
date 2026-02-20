@@ -134,8 +134,8 @@ If insufficient data, say so. Progress delta max is 5 per prompt. Be realistic. 
             async start(controller) {
                 try {
                     const completionStream = await openai.chat.completions.create({
-                        model: "gpt-5-nano-2025-08-07",
-                        temperature: 0.5,
+                        model: "gpt-4o-mini",
+                        temperature: 0.1,
                         response_format: { type: "json_object" },
                         messages: chatMessages,
                         stream: true,

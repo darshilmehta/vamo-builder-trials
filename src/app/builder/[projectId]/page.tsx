@@ -265,7 +265,17 @@ function BuilderPageContent({
                 .eq("project_id", params.projectId)
                 .order("created_at", { ascending: true });
 
-            const { error } = await supabase.from("listings").insert({
+            // Check if a listing already exists for this project
+            const { data: existingListing } = await supabase
+                .from("listings")
+                .select("id")
+                .eq("project_id", params.projectId)
+                .eq("user_id", user.id)
+                .order("created_at", { ascending: false })
+                .limit(1)
+                .single();
+
+            const listingData = {
                 project_id: params.projectId,
                 user_id: user.id,
                 title: listingTitle,
@@ -276,7 +286,20 @@ function BuilderPageContent({
                 metrics: {
                     progress_score: project?.progress_score,
                 },
-            });
+                status: "active",
+            };
+
+            let error;
+            if (existingListing) {
+                // Update existing listing
+                ({ error } = await supabase
+                    .from("listings")
+                    .update(listingData)
+                    .eq("id", existingListing.id));
+            } else {
+                // Create new listing
+                ({ error } = await supabase.from("listings").insert(listingData));
+            }
 
             if (error) throw error;
 

@@ -30,7 +30,7 @@ export async function generateIdeaAction(
 
   try {
     const completion = await client.chat.completions.create({
-      model: "gpt-5-nano-2025-08-07",
+      model: "gpt-4o-mini",
       temperature: 0.1,
       messages: [
         {

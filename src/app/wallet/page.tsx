@@ -147,7 +147,21 @@ export default function WalletPage() {
                 body: JSON.stringify({ amount }),
             });
             const data = await res.json();
-            if (!res.ok) throw new Error(data.error);
+
+            if (!res.ok) {
+                // Wallet integrity issue — show a persistent warning
+                if (res.status === 403) {
+                    setRedeemDialog(false);
+                    setRedeemAmount("");
+                    toast.error(data.error || "Wallet verification failed", {
+                        duration: Infinity,
+                        description:
+                            "Please reach out to our support team so we can look into this for you.",
+                    });
+                    return;
+                }
+                throw new Error(data.error);
+            }
 
             setProfile((prev) =>
                 prev ? { ...prev, pineapple_balance: data.newBalance } : prev

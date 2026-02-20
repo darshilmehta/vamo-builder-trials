@@ -53,8 +53,6 @@ export function useRealtimeTable({
     const id = ++channelCounter;
     const channelName = `rt-${table}-${filter ?? "all"}-${id}`;
 
-    console.log(`[useRealtimeTable] Subscribing to ${table}`, { filter, channelName });
-
     // Build subscription opts — use "*" to catch all events in one listener
     const opts: Record<string, string> = {
       event: "*",
@@ -72,19 +70,15 @@ export function useRealtimeTable({
         opts,
         (payload: RealtimePostgresChangesPayload<{ [key: string]: unknown }>) => {
           const eventType = payload.eventType as PostgresEvent;
-          console.log(`[useRealtimeTable] ${table} received:`, eventType, payload);
           // Only fire callback if this event type is in our desired list
           if (eventsRef.current.includes(eventType)) {
             onEventRef.current(eventType, payload);
           }
         }
       )
-      .subscribe((status: string) => {
-        console.log(`[useRealtimeTable] ${table} channel status:`, status);
-      });
+      .subscribe();
 
     return () => {
-      console.log(`[useRealtimeTable] Unsubscribing from ${table}`, channelName);
       supabase.removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

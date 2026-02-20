@@ -120,7 +120,8 @@
     body {
         @apply bg-background text-foreground;
         font-feature-settings: "rlig" 1, "calt" 1;
-        transition: background-color 0.3s ease, color 0.2s ease;
+        /* Note: body-level transition removed — it triggers a full repaint on every
+           theme change and navigation. Theme transitions are handled by ThemeProvider. */
     }
 }
 

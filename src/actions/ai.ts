@@ -30,8 +30,8 @@ export async function generateIdeaAction(
 
   try {
     const completion = await client.chat.completions.create({
-      model: "gpt-4o-mini",
-      temperature: 0.5,
+      model: "gpt-5-nano-2025-08-07",
+      temperature: 0.1,
       messages: [
         {
           role: "system",
@@ -45,15 +45,15 @@ export async function generateIdeaAction(
 
     const output = Array.isArray(message)
       ? message
-          .map((part) => {
-            if (typeof part === "string") return part
-            if (typeof part === "object" && "text" in part && typeof part.text === "string") {
-              return part.text
-            }
-            return ""
-          })
-          .join("\n")
-          .trim()
+        .map((part) => {
+          if (typeof part === "string") return part
+          if (typeof part === "object" && "text" in part && typeof part.text === "string") {
+            return part.text
+          }
+          return ""
+        })
+        .join("\n")
+        .trim()
       : (message ?? "").toString().trim()
 
     return {

@@ -8,7 +8,6 @@ import { trackEvent } from "@/lib/analytics";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -120,6 +119,7 @@ export function BusinessPanel({ projectId, refreshKey }: BusinessPanelProps) {
     const [linkDialog, setLinkDialog] = useState<string | null>(null);
     const [linkUrl, setLinkUrl] = useState("");
     const [linkLoading, setLinkLoading] = useState(false);
+    const [linkError, setLinkError] = useState<string | null>(null);
     const [linkedAssets, setLinkedAssets] = useState<Record<string, boolean>>({});
 
     const loadData = useCallback(async () => {
@@ -266,8 +266,46 @@ export function BusinessPanel({ projectId, refreshKey }: BusinessPanelProps) {
         toast.success("Updated!");
     }
 
+    function validateLinkUrl(url: string, type: string): string | null {
+        const trimmed = url.trim();
+        if (!trimmed) return "URL is required";
+
+        // Check for valid URL format
+        let parsed: URL;
+        try {
+            parsed = new URL(trimmed);
+        } catch {
+            return "Please enter a valid URL (e.g. https://example.com)";
+        }
+
+        // Must be http or https
+        if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+            return "URL must start with http:// or https://";
+        }
+
+        // Platform-specific domain checks
+        const hostname = parsed.hostname.toLowerCase();
+        if (type === "linkedin") {
+            if (!hostname.endsWith("linkedin.com")) {
+                return "Please enter a valid LinkedIn URL (e.g. https://linkedin.com/in/your-profile)";
+            }
+        } else if (type === "github") {
+            if (!hostname.endsWith("github.com")) {
+                return "Please enter a valid GitHub URL (e.g. https://github.com/your-username)";
+            }
+        }
+
+        return null; // valid
+    }
+
     async function handleLinkAsset() {
         if (!linkUrl.trim() || !linkDialog) return;
+
+        const error = validateLinkUrl(linkUrl, linkDialog);
+        if (error) {
+            setLinkError(error);
+            return;
+        }
 
         setLinkLoading(true);
         const supabase = getSupabaseBrowserClient();
@@ -306,6 +344,7 @@ export function BusinessPanel({ projectId, refreshKey }: BusinessPanelProps) {
         setLinkedAssets((prev) => ({ ...prev, [eventType]: true }));
         setLinkDialog(null);
         setLinkUrl("");
+        setLinkError(null);
         setLinkLoading(false);
         toast.success(`${linkDialog} linked! 🍍`);
         loadData();
@@ -672,6 +711,7 @@ export function BusinessPanel({ projectId, refreshKey }: BusinessPanelProps) {
                     if (!open) {
                         setLinkDialog(null);
                         setLinkUrl("");
+                        setLinkError(null);
                     }
                 }}
             >
@@ -682,15 +722,24 @@ export function BusinessPanel({ projectId, refreshKey }: BusinessPanelProps) {
                             Paste your {linkDialog} URL to earn pineapples
                         </DialogDescription>
                     </DialogHeader>
-                    <Input
-                        value={linkUrl}
-                        onChange={(e) => setLinkUrl(e.target.value)}
-                        placeholder={`https://${linkDialog === "linkedin" ? "linkedin.com/in/your-profile" : linkDialog === "github" ? "github.com/your-username" : "your-site.com"}`}
-                    />
+                    <div className="space-y-1">
+                        <Input
+                            value={linkUrl}
+                            onChange={(e) => {
+                                setLinkUrl(e.target.value);
+                                if (linkError) setLinkError(null);
+                            }}
+                            placeholder={`https://${linkDialog === "linkedin" ? "linkedin.com/in/your-profile" : linkDialog === "github" ? "github.com/your-username" : "your-site.com"}`}
+                            className={linkError ? "border-red-500 focus-visible:ring-red-500" : ""}
+                        />
+                        {linkError && (
+                            <p className="text-xs text-red-500">{linkError}</p>
+                        )}
+                    </div>
                     <DialogFooter>
                         <Button
                             onClick={handleLinkAsset}
-                            disabled={!linkUrl.trim() || linkLoading}
+                            disabled={!linkUrl.trim() || linkLoading || !!linkError}
                         >
                             {linkLoading ? (
                                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />

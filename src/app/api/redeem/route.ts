@@ -39,6 +39,54 @@ export async function POST(request: Request) {
             );
         }
 
+        // ── Wallet Ledger Integrity Check ──────────────────────────
+        // Verify that the profile balance matches the sum of all
+        // ledger entries. If it doesn't, the wallet may have been
+        // tampered with (e.g. pineapples manually increased).
+        const { data: ledgerEntries, error: ledgerFetchError } = await supabase
+            .from("reward_ledger")
+            .select("reward_amount")
+            .eq("user_id", user.id);
+
+        if (ledgerFetchError) {
+            console.error(
+                "Ledger integrity check failed – could not fetch ledger:",
+                ledgerFetchError
+            );
+            return NextResponse.json(
+                {
+                    error:
+                        "We encountered an internal issue while verifying your wallet. " +
+                        "Please contact support to resolve this.",
+                },
+                { status: 500 }
+            );
+        }
+
+        const computedBalance = (ledgerEntries || []).reduce(
+            (sum: number, entry: { reward_amount: number }) =>
+                sum + entry.reward_amount,
+            0
+        );
+
+        if (computedBalance !== profile.pineapple_balance) {
+            console.error(
+                `⚠️ WALLET INTEGRITY MISMATCH for user ${user.id}: ` +
+                    `profile.pineapple_balance=${profile.pineapple_balance}, ` +
+                    `computed ledger sum=${computedBalance}`
+            );
+            return NextResponse.json(
+                {
+                    error:
+                        "We detected an inconsistency in your wallet. " +
+                        "Your redemption cannot be processed at this time. " +
+                        "Please contact support to resolve this issue.",
+                },
+                { status: 403 }
+            );
+        }
+        // ── End Integrity Check ────────────────────────────────────
+
         if (profile.pineapple_balance < amount) {
             return NextResponse.json(
                 { error: "Insufficient balance" },

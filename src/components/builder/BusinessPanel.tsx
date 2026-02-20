@@ -371,16 +371,16 @@ export function BusinessPanel({ projectId, refreshKey }: BusinessPanelProps) {
                         Valuation Range
                     </div>
                     {project && (project.valuation_low > 0 || project.valuation_high > 0) ? (
-                        <div className="rounded-lg bg-green-50 p-3">
-                            <p className="text-lg font-bold text-green-700 break-words leading-tight">
+                        <div className="rounded-lg bg-green-50 dark:bg-green-950/30 p-3 ring-1 ring-green-500/10 dark:ring-green-500/20">
+                            <p className="text-lg font-bold text-green-700 dark:text-green-500 break-words leading-tight">
                                 ${project.valuation_low.toLocaleString()} – ${project.valuation_high.toLocaleString()}
                             </p>
-                            <p className="text-xs text-green-600/70">
+                            <p className="text-xs text-green-600/70 dark:text-green-500/70">
                                 Estimates based on logged activity only
                             </p>
                         </div>
                     ) : (
-                        <div className="rounded-lg bg-muted p-3">
+                        <div className="rounded-lg bg-muted dark:bg-slate-800/50 p-3">
                             <p className="text-sm text-muted-foreground">Not yet estimated</p>
                             <p className="text-xs text-muted-foreground/70">
                                 Log progress to generate a valuation
@@ -426,7 +426,7 @@ export function BusinessPanel({ projectId, refreshKey }: BusinessPanelProps) {
                         </div>
                     ) : (
                         <div
-                            className="cursor-pointer rounded-lg border border-dashed p-3 text-sm transition-colors hover:bg-muted/50"
+                            className="cursor-pointer rounded-lg border border-dashed dark:border-slate-800 p-3 text-sm transition-colors hover:bg-muted/50 dark:hover:bg-slate-800/50"
                             onClick={() => setEditingWhy(true)}
                         >
                             {project?.why_built || (
@@ -450,12 +450,12 @@ export function BusinessPanel({ projectId, refreshKey }: BusinessPanelProps) {
                         <Badge
                             variant="secondary"
                             className={`text-xs ${(project?.progress_score || 0) <= 25
-                                ? "bg-red-100 text-red-700"
+                                ? "bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-400 dark:border-red-900/50"
                                 : (project?.progress_score || 0) <= 50
-                                    ? "bg-yellow-100 text-yellow-700"
+                                    ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-950/50 dark:text-yellow-400 dark:border-yellow-900/50"
                                     : (project?.progress_score || 0) <= 75
-                                        ? "bg-green-100 text-green-700"
-                                        : "bg-blue-100 text-blue-700"
+                                        ? "bg-green-100 text-green-700 dark:bg-green-950/50 dark:text-green-400 dark:border-green-900/50"
+                                        : "bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:text-blue-400 dark:border-blue-900/50"
                                 }`}
                         >
                             {getProgressLabel(project?.progress_score || 0)}
@@ -466,7 +466,7 @@ export function BusinessPanel({ projectId, refreshKey }: BusinessPanelProps) {
                             <span>{project?.progress_score || 0}%</span>
                             <span>100%</span>
                         </div>
-                        <div className="h-3 overflow-hidden rounded-full bg-secondary">
+                        <div className="h-3 overflow-hidden rounded-full bg-secondary dark:bg-slate-800">
                             <div
                                 className={`h-full rounded-full transition-all ${getProgressColor(
                                     project?.progress_score || 0
@@ -565,7 +565,7 @@ export function BusinessPanel({ projectId, refreshKey }: BusinessPanelProps) {
                             </ResponsiveContainer>
                         </div>
                     ) : (
-                        <div className="relative flex h-[150px] items-center justify-center overflow-hidden rounded-lg border border-dashed bg-muted/20">
+                        <div className="relative flex h-[150px] items-center justify-center overflow-hidden rounded-lg border border-dashed dark:border-slate-800 bg-muted/20 dark:bg-slate-800/20">
                             <div className="text-center">
                                 <Activity className="mx-auto mb-2 h-8 w-8 text-muted-foreground/30" />
                                 <p className="text-xs text-muted-foreground">
@@ -593,7 +593,7 @@ export function BusinessPanel({ projectId, refreshKey }: BusinessPanelProps) {
                             {tractionSignals.slice(0, 5).map((signal) => (
                                 <div
                                     key={signal.id}
-                                    className="flex items-start gap-2 rounded-md bg-muted/50 p-2"
+                                    className="flex items-start gap-2 rounded-md bg-muted/50 dark:bg-slate-800/30 p-2"
                                 >
                                     {eventIcon(signal.event_type)}
                                     <div className="flex-1 min-w-0">
@@ -641,14 +641,14 @@ export function BusinessPanel({ projectId, refreshKey }: BusinessPanelProps) {
                         ).map((asset) => (
                             <div
                                 key={asset.key}
-                                className="flex items-center justify-between rounded-md border p-2"
+                                className="flex items-center justify-between rounded-md border dark:border-slate-800 p-2"
                             >
                                 <div className="flex items-center gap-2">
                                     {asset.icon}
                                     <span className="text-sm">{asset.label}</span>
                                 </div>
                                 {linkedAssets[`link_${asset.key}`] ? (
-                                    <Badge variant="secondary" className="gap-1 bg-green-100 text-green-700">
+                                    <Badge variant="secondary" className="gap-1 bg-green-100 text-green-700 dark:bg-green-950/50 dark:text-green-400 dark:border-green-900/50">
                                         <Check className="h-3 w-3" />
                                         Linked
                                     </Badge>

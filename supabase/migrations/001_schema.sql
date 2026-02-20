@@ -1,18 +1,6 @@
 -- Vamo BountyBot: Complete Database Schema
 -- Run this migration against your Supabase project
 
--- ============================================================
--- Helper: Admin check (SECURITY DEFINER bypasses RLS)
--- ============================================================
-CREATE OR REPLACE FUNCTION public.is_admin()
-RETURNS BOOLEAN AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM public.profiles
-    WHERE id = auth.uid() AND is_admin = true
-  );
-$$ LANGUAGE sql SECURITY DEFINER STABLE;
-
--- ============================================================
 -- 1. profiles
 -- ============================================================
 CREATE TABLE IF NOT EXISTS profiles (
@@ -27,6 +15,19 @@ CREATE TABLE IF NOT EXISTS profiles (
 );
 
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+
+-- ============================================================
+-- Helper: Admin check (SECURITY DEFINER bypasses RLS)
+-- ============================================================
+CREATE OR REPLACE FUNCTION public.is_admin()
+RETURNS BOOLEAN AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.profiles
+    WHERE id = auth.uid() AND is_admin = true
+  );
+$$ LANGUAGE sql SECURITY DEFINER STABLE;
+
+-- ============================================================
 
 CREATE POLICY "Users can view own profile"
   ON profiles FOR SELECT
@@ -110,6 +111,14 @@ CREATE POLICY "Owner can insert messages"
   ON messages FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
+CREATE POLICY "Owner can delete own messages"
+  ON messages FOR DELETE
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Owner can update own messages"
+  ON messages FOR UPDATE
+  USING (auth.uid() = user_id);
+
 -- ============================================================
 -- 4. activity_events
 -- ============================================================
@@ -138,6 +147,14 @@ CREATE POLICY "Owner can insert events"
   ON activity_events FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
+CREATE POLICY "Owner can delete own events"
+  ON activity_events FOR DELETE
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Owner can update own events"
+  ON activity_events FOR UPDATE
+  USING (auth.uid() = user_id);
+
 CREATE POLICY "Admins can view all events"
   ON activity_events FOR SELECT
   USING (public.is_admin());
@@ -165,6 +182,14 @@ CREATE POLICY "Owner can view own ledger"
 CREATE POLICY "Owner can insert own ledger"
   ON reward_ledger FOR INSERT
   WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Owner can delete own ledger"
+  ON reward_ledger FOR DELETE
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Owner can update own ledger"
+  ON reward_ledger FOR UPDATE
+  USING (auth.uid() = user_id);
 
 CREATE POLICY "Admins can view all ledger"
   ON reward_ledger FOR SELECT

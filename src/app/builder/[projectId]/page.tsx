@@ -424,7 +424,7 @@ function BuilderPageContent({
                                     {/* Toolbar controlled by floating dock */}
                                 </div>
                             </div>
-                            <div className="flex-1 overflow-hidden bg-muted/30">
+                            <div className="flex-1 overflow-hidden bg-muted/30 dark:bg-transparent">
                                 <ChatPanel
                                     projectId={params.projectId}
                                     onMessageSent={handleMessageSent}
@@ -490,7 +490,7 @@ function BuilderPageContent({
                                 </div>
                                 {/* Toolbar controlled by floating dock */}
                             </div>
-                            <div className="flex-1 overflow-hidden bg-slate-50/50">
+                            <div className="flex-1 overflow-hidden bg-slate-50/50 dark:bg-transparent">
                                 <BusinessPanel
                                     projectId={params.projectId}
                                     refreshKey={refreshKey}

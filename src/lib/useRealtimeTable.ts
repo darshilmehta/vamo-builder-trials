@@ -66,6 +66,7 @@ export function useRealtimeTable({
     const channel: RealtimeChannel = supabase
       .channel(channelName)
       .on(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         "postgres_changes" as any,
         opts,
         (payload: RealtimePostgresChangesPayload<{ [key: string]: unknown }>) => {

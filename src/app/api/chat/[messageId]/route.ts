@@ -1,7 +1,8 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getOpenAIClient } from "@/lib/openai";
 import { NextResponse } from "next/server";
-import { REWARD_SCHEDULE, RATE_LIMIT_MAX_PROMPTS_PER_HOUR } from "@/lib/types";
+
 
 export async function DELETE(
     request: Request,

@@ -58,6 +58,11 @@ export function Header({
     // Auto-detect auth state for "public" variant (landing page, marketplace)
     const [autoProfile, setAutoProfile] = useState<Profile | null>(null);
     const [authChecked, setAuthChecked] = useState(variant !== "public");
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     useEffect(() => {
         if (variant !== "public") return;
@@ -99,14 +104,15 @@ export function Header({
         router.refresh();
     }, [router]);
 
-    const themeIcon =
-        theme === "dark" ? (
-            <Moon className="h-4 w-4" />
-        ) : theme === "high-contrast" ? (
-            <Contrast className="h-4 w-4" />
-        ) : (
-            <Sun className="h-4 w-4" />
-        );
+    const themeIcon = !mounted ? (
+        <Sun className="h-4 w-4" />
+    ) : theme === "dark" ? (
+        <Moon className="h-4 w-4" />
+    ) : theme === "high-contrast" ? (
+        <Contrast className="h-4 w-4" />
+    ) : (
+        <Sun className="h-4 w-4" />
+    );
 
     const currentLocaleName = locales.find((l) => l.code === locale)?.label || "English";
 
